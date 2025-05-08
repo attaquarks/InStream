@@ -8,33 +8,33 @@ body {
 
 @layer base {
   :root {
-    --background: 222 43% 9%; /* 0D1321 */
-    --foreground: 48 44% 89%; /* F0EBD8 */
+    --background: 222 43% 9%; /* #0D1321 */
+    --foreground: 48 44% 89%; /* #F0EBD8 */
 
-    --card: 215 40% 19%; /* 1D2D44 */
-    --card-foreground: 48 44% 89%; /* F0EBD8 */
+    --card: 215 40% 19%; /* #1D2D44 */
+    --card-foreground: 48 44% 89%; /* #F0EBD8 */
 
-    --popover: 215 40% 19%; /* 1D2D44 */
-    --popover-foreground: 48 44% 89%; /* F0EBD8 */
+    --popover: 215 40% 19%; /* #1D2D44 */
+    --popover-foreground: 48 44% 89%; /* #F0EBD8 */
 
-    --primary: 214 25% 56%; /* 748CAB */
-    --primary-foreground: 48 44% 89%; /* F0EBD8 */
+    --primary: 214 25% 56%; /* #748CAB */
+    --primary-foreground: 48 44% 89%; /* #F0EBD8 */
 
-    --secondary: 208 31% 35%; /* 3E5C76 */
-    --secondary-foreground: 48 44% 89%; /* F0EBD8 */
+    --secondary: 208 31% 35%; /* #3E5C76 */
+    --secondary-foreground: 48 44% 89%; /* #F0EBD8 */
 
-    --muted: 215 40% 15%; /* Darker than card */
-    --muted-foreground: 208 31% 65%; /* Lighter shade of secondary base */
+    --muted: 215 40% 15%; /* Darker than card, derived from #1D2D44 */
+    --muted-foreground: 208 31% 65%; /* Lighter shade of secondary base, derived from #3E5C76 */
 
-    --accent: 208 31% 35%; /* 3E5C76 */
-    --accent-foreground: 48 44% 89%; /* F0EBD8 */
+    --accent: 208 31% 35%; /* #3E5C76 */
+    --accent-foreground: 48 44% 89%; /* #F0EBD8 */
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 208 31% 25%; /* Darker than accent/secondary */
-    --input: 208 31% 25%; 
-    --ring: 214 25% 56%; /* 748CAB */
+    --border: 208 31% 25%; /* Darker than accent/secondary, derived from #3E5C76 */
+    --input: 208 31% 25%; /* Darker than accent/secondary, derived from #3E5C76 */
+    --ring: 214 25% 56%; /* #748CAB */
 
     --radius: 0.5rem;
 
@@ -48,12 +48,12 @@ body {
     /* Sidebar variables */
     --sidebar-background: 222 43% 7%; /* Darker than main background */
     --sidebar-foreground: 48 44% 80%; /* Slightly dimmer text */
-    --sidebar-primary: 214 25% 56%;    /* 748CAB */
-    --sidebar-primary-foreground: 48 44% 89%; /* F0EBD8 */
-    --sidebar-accent: 215 40% 19%;    /* 1D2D44 */
-    --sidebar-accent-foreground: 48 44% 89%; /* F0EBD8 */
+    --sidebar-primary: 214 25% 56%;    /* #748CAB */
+    --sidebar-primary-foreground: 48 44% 89%; /* #F0EBD8 */
+    --sidebar-accent: 215 40% 19%;    /* #1D2D44 */
+    --sidebar-accent-foreground: 48 44% 89%; /* #F0EBD8 */
     --sidebar-border: 222 43% 5%;    /* Darker than sidebar background */
-    --sidebar-ring: 214 25% 56%;      /* 748CAB */
+    --sidebar-ring: 214 25% 56%;      /* #748CAB */
   }
 
   .dark {
