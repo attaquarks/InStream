@@ -1,0 +1,83 @@
+
+{% extends "base.html" %}
+
+{% block title %}Dashboard - InStream{% endblock %}
+
+{% block head_extra %}
+    <!-- Add links to CSS for charting libraries or custom dashboard styles -->
+    <!-- e.g., <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.min.css"> -->
+{% endblock %}
+
+{% block content %}
+    <h2>Analytics Dashboard</h2>
+    <p>Explore insights from collected social media data.</p>
+
+    <!-- Filters Section -->
+    <div class="filters">
+        <label for="timeRange">Time Range:</label>
+        <select id="timeRange">
+            <option value="1">Last 24 Hours</option>
+            <option value="7" selected>Last 7 Days</option>
+            <option value="30">Last 30 Days</option>
+        </select>
+        <button id="applyFiltersButton">Apply Filters</button>
+    </div>
+
+    <!-- Summary Statistics Section -->
+    <section id="summaryStats" class="dashboard-section">
+        <h3>Summary Statistics</h3>
+        <div id="totalPosts">Total Posts: Loading...</div>
+        <div id="platformDistribution">Platform Distribution: Loading...</div>
+        <!-- Add more summary elements -->
+    </section>
+
+    <!-- Charts Section -->
+    <section id="charts" class="dashboard-section">
+        <h3>Visualizations</h3>
+        <div>
+            <h4>Activity Over Time</h4>
+            <canvas id="activityChartCanvas" width="400" height="200"></canvas>
+        </div>
+        <div>
+            <h4>Sentiment Distribution</h4>
+            <canvas id="sentimentChartCanvas" width="400" height="200"></canvas>
+        </div>
+        <!-- Add more chart canvases -->
+    </section>
+
+    <!-- Top Posts Section -->
+    <section id="topPosts" class="dashboard-section">
+        <h3>Top Posts</h3>
+        <ul id="topPostsList">
+            <li>Loading...</li>
+        </ul>
+    </section>
+
+    <!-- Trending Topics Section -->
+    <section id="trendingTopics" class="dashboard-section">
+        <h3>Trending Topics</h3>
+        <div id="trendingHashtags">Hashtags: Loading...</div>
+        <div id="trendingKeywords">Keywords: Loading...</div>
+    </section>
+
+{% endblock %}
+
+{% block scripts_extra %}
+    <!-- Add links to JavaScript for charting libraries -->
+    <!-- e.g., <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <script>
+        // Initialize dashboard-specific JS after DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Example: Apply filters on button click
+            document.getElementById('applyFiltersButton').addEventListener('click', function() {
+                const days = document.getElementById('timeRange').value;
+                // Re-fetch data based on new time range
+                console.log(`Applying filters for ${days} days.`);
+                // Example: fetchSummaryData(days); (assuming fetchSummaryData is modified to take days)
+                // You would call functions to update all relevant dashboard sections
+            });
+        });
+    </script>
+{% endblock %}

@@ -1,0 +1,1063 @@
+
+# Custom stopwords for the InStream application
+# Add one stopword per line. These words will be excluded during keyword extraction.
+# Example:
+# instream
+# analytics
+# social
+# media
+# data
+# post
+# tweet
+# comment
+# share
+# like
+# follow
+# profile
+# user
+# app
+# api
+# a
+# an
+# the
+# is
+# are
+# was
+# were
+# be
+# been
+# being
+# have
+# has
+# had
+# do
+# does
+# did
+# will
+# would
+# should
+# can
+# could
+# may
+# might
+# must
+# about
+# above
+# after
+# again
+# against
+# all
+# am
+# and
+# any
+# as
+# at
+# because
+# before
+# below
+# between
+# both
+# but
+# by
+# for
+# from
+# further
+# here
+# how
+# i
+# if
+# in
+# into
+# it
+# its
+# itself
+# just
+# me
+# more
+# most
+# my
+# myself
+# no
+# nor
+# not
+# now
+# of
+# off
+# on
+# once
+# only
+# or
+# other
+# our
+# ours
+# ourselves
+# out
+# over
+# own
+# same
+# she
+# so
+# some
+# such
+# than
+# that
+# their
+# theirs
+# them
+# themselves
+# then
+# there
+# these
+# they
+# this
+# those
+# through
+# to
+# too
+# under
+# until
+# up
+# very
+# we
+# what
+# when
+# where
+# which
+# while
+# who
+# whom
+# why
+# with
+# you
+# your
+# yours
+# yourself
+# yourselves
+# jan
+# feb
+# mar
+# apr
+# jun
+# jul
+# aug
+# sep
+# oct
+# nov
+# dec
+# monday
+# tuesday
+# wednesday
+# thursday
+# friday
+# saturday
+# sunday
+# pm
+# am
+# rt
+# u
+# im
+# co
+# http
+# https
+# www
+# com
+# org
+# net
+# io
+# tech
+# ai
+# ml
+# code
+# dev
+# devops
+# data
+# science
+# bigdata
+# cloud
+# app
+# service
+# platform
+# solution
+# new
+# update
+# release
+# announcement
+# news
+# article
+# blog
+# video
+# tutorial
+# guide
+# learn
+# study
+# research
+# paper
+# conference
+# webinar
+# event
+# job
+# career
+# hiring
+# looking
+# help
+# support
+# question
+# answer
+# problem
+# issue
+# error
+# bug
+# fix
+# feature
+# request
+# feedback
+# suggestion
+# idea
+# tip
+# trick
+# hack
+# lifehack
+# awesome
+# amazing
+# great
+# good
+# bad
+# worst
+# best
+# top
+# free
+# sale
+# discount
+# offer
+# deal
+# giveaway
+# contest
+# win
+# winner
+# congratulations
+# thanks
+# thank
+# please
+# sorry
+# hello
+# hi
+# hey
+# bye
+# good morning
+# good afternoon
+# good evening
+# good night
+# lol
+# lmao
+# rofl
+# omg
+# wtf
+# btw
+# fyi
+# asap
+# aka
+# etc
+# eg
+# ie
+# vs
+# ps
+# nb
+# ok
+# okay
+# yes
+# no
+# maybe
+# true
+# false
+# null
+# undefined
+# nan
+# inf
+# aint
+# arent
+# cant
+# couldve
+# couldnt
+# didnt
+# doesnt
+# dont
+# hadnt
+# hasnt
+# havent
+# hed
+# hell
+# here's
+# hes
+# hows
+# id
+# ill
+# im
+# ive
+# isnt
+# itd
+# itll
+# its
+# lets
+# mightnt
+# mustnt
+# neednt
+# o
+# oughtnt
+# shant
+# shed
+# shell
+# shes
+# shouldve
+# shouldnt
+# so
+# some
+# thatd
+# thatll
+# thats
+# theres
+# theyd
+# theyll
+# theyre
+# theyve
+# wasnt
+# werent
+# whatll
+# whats
+# whens
+# wheres
+# wholl
+# whos
+# whyll
+# whys
+# wont
+# wouldve
+# wouldnt
+# youd
+# youll
+# youre
+# youve
+# one
+# two
+# three
+# four
+# five
+# six
+# seven
+# eight
+# nine
+# ten
+# also
+# anothers
+# anyones
+# every
+# everyone
+# everyones
+# everything
+# few
+# get
+# go
+# going
+# got
+# his
+# hers
+# him
+# himself
+# hither
+# henceforth
+# herein
+# hereafter
+# however
+# whence
+# many
+# much
+# neither
+# nobodys
+# noone
+# non
+# nothing
+# said
+# see
+# seem
+# seemed
+# seeming
+# seems
+# several
+# someones
+# somethan
+# sometime
+# sometimes
+# still
+# take
+# than
+# thered
+# therell
+# thatis
+# themselve
+# tion
+# tions
+# thon
+# thoro
+# thou
+# though
+# thoughh
+# throug
+# throughout
+# thus
+# til
+# tis
+# tother
+# twas
+# twelve
+# twenty
+# twere
+# twill
+# twould
+# unto
+# upon
+# us
+# used
+# using
+# various
+# via
+# want
+# wants
+# wasnot
+# way
+# wed
+# welcome
+# well
+# were
+# werent
+# whatever
+# whencesoever
+# whenever
+# whereafter
+# whereas
+# whereby
+# wherein
+# whereis
+# wheresoever
+# whereto
+# whereunto
+# whereupon
+# wherewith
+# whether
+# whew
+# whichsoever
+# whiles
+# whithersoever
+# who'd
+# who's
+# whoever
+# whole
+# whomso
+# whomsoever
+# whosesoever
+# whosoevers
+# will
+# willing
+# wish
+# within
+# without
+# wost
+# wouldst
+# yet
+# yond
+# yonder
+# yon
+# youall
+# youd
+# youre
+# youve
+# anothers
+# anybodys
+# anyones
+# each
+# other's
+# others
+# own's
+# an
+# another
+# any
+# anybody
+# anyone
+# anything
+# auto
+# did
+# do
+# does
+# doing
+# done
+# during
+# e
+# g
+# et
+# et-al
+# etc
+# had
+# has
+# having
+# he
+# he'd
+# he'll
+# he's
+# her
+# here
+# herself
+# him
+# himself
+# his
+# i'd
+# i'll
+# i'm
+# i've
+# if
+# is
+# isn't
+# it's
+# its
+# itself
+# let's
+# ma
+# me
+# more
+# most
+# mustn't
+# my
+# myself
+# nor
+# o'clock
+# of
+# on
+# once
+# only
+# ought
+# oughtn't
+# our
+# ours
+# ourselves
+# out
+# over
+# own
+# shan't
+# she
+# she'd
+# she'll
+# she's
+# should
+# shouldn't
+# so
+# some
+# such
+# than
+# that
+# that's
+# their
+# theirs
+# them
+# themselves
+# then
+# there
+# there's
+# these
+# they
+# they'd
+# they'll
+# they're
+# they've
+# this
+# those
+# through
+# to
+# too
+# tshould
+# us
+# ve
+# was
+# wasn't
+# we
+# we'd
+# we'll
+# we're
+# we've
+# were
+# weren't
+# what
+# what's
+# when
+# when's
+# where
+# where's
+# which
+# while
+# who
+# who's
+# whom
+# why
+# why's
+# will
+# with
+# won't
+# would
+# wouldn't
+# you
+# you'd
+# you'll
+# you're
+# you've
+# your
+# yours
+# yourself
+# yourselves
+# zero
+# zillion
+# \'s
+# \'d
+# \'ll
+# \'m
+# \'re
+# \'ve
+#“
+#”
+#‘
+#’
+#–
+#—
+#…
+#nbsp
+#amp
+#quot
+#apos
+#lt
+#gt
+#bull
+#hellip
+#mdash
+#ndash
+#rsquo
+#lsquo
+#rdquo
+#ldquo
+#copy
+#reg
+#trade
+#euro
+#pound
+#yen
+#cent
+#dollar
+#sect
+#para
+#deg
+#plusmn
+#sup1
+#sup2
+#sup3
+#frac14
+#frac12
+#frac34
+#times
+#divide
+#micro
+#middot
+#cedil
+#ordm
+#ordf
+#not
+#shy
+#macr
+#acute
+#uml
+#circ
+#tilde
+#cedil
+#quot
+#amp
+#lt
+#gt
+#nbsp
+#iexcl
+#cent
+#pound
+#curren
+#yen
+#brvbar
+#sect
+#uml
+#copy
+#ordf
+#laquo
+#not
+#shy
+#reg
+#macr
+#deg
+#plusmn
+#sup2
+#sup3
+#acute
+#micro
+#para
+#middot
+#cedil
+#sup1
+#ordm
+#raquo
+#frac14
+#frac12
+#frac34
+#iquest
+#agrave
+#aacute
+#acirc
+#atilde
+#auml
+#aring
+#aelig
+#ccedil
+#egrave
+#eacute
+#ecirc
+#euml
+#igrave
+#iacute
+#icirc
+#iuml
+#eth
+#ntilde
+#ograve
+#oacute
+#ocirc
+#otilde
+#ouml
+#divide
+#oslash
+#ugrave
+#uacute
+#ucirc
+#uuml
+#yacute
+#thorn
+#yuml
+#get
+#getting
+#gotten
+#say
+#says
+#said
+#tell
+#tells
+#told
+#ask
+#asks
+#asked
+#go
+#goes
+#went
+#gone
+#see
+#sees
+#saw
+#seen
+#look
+#looks
+#looked
+#use
+#uses
+#used
+#make
+#makes
+#made
+#come
+#comes
+#came
+#know
+#knows
+#knew
+#known
+#think
+#thinks
+#thought
+#want
+#wants
+#wanted
+#give
+#gives
+#gave
+#given
+#find
+#finds
+#found
+#work
+#works
+#worked
+#call
+#calls
+#called
+#try
+#tries
+#tried
+#need
+#needs
+#needed
+#feel
+#feels
+#felt
+#become
+#becomes
+#became
+#leave
+#leaves
+#left
+#put
+#puts
+#mean
+#means
+#meant
+#keep
+#keeps
+#kept
+#let
+#lets
+#begin
+#begins
+#began
+#begun
+#seem
+#seems
+#seemed
+#help
+#helps
+#helped
+#talk
+#talks
+#talked
+#turn
+#turns
+#turned
+#start
+#starts
+#started
+#show
+#shows
+#showed
+#hear
+#hears
+#heard
+#play
+#plays
+#played
+#run
+#runs
+#ran
+#move
+#moves
+#moved
+#live
+#lives
+#lived
+#believe
+#believes
+#believed
+#bring
+#brings
+#brought
+#happen
+#happens
+#happened
+#write
+#writes
+#wrote
+#written
+#provide
+#provides
+#provided
+#sit
+#sits
+#sat
+#stand
+#stands
+#stood
+#lose
+#loses
+#lost
+#pay
+#pays
+#paid
+#meet
+#meets
+#met
+#include
+#includes
+#included
+#continue
+#continues
+#continued
+#set
+#sets
+#learn
+#learns
+#learned
+#change
+#changes
+#changed
+#lead
+#leads
+#led
+#understand
+#understands
+#understood
+#watch
+#watches
+#watched
+#follow
+#follows
+#followed
+#stop
+#stops
+#stopped
+#create
+#creates
+#created
+#speak
+#speaks
+#spoke
+#spoken
+#read
+#reads
+#allow
+#allows
+#allowed
+#add
+#adds
+#added
+#spend
+#spends
+#spent
+#grow
+#grows
+#grew
+#grown
+#open
+#opens
+#opened
+#walk
+#walks
+#walked
+#win
+#wins
+#won
+#offer
+#offers
+#offered
+#remember
+#remembers
+#remembered
+#love
+#loves
+#loved
+#consider
+#considers
+#considered
+#appear
+#appears
+#appeared
+#buy
+#buys
+#bought
+#wait
+#waits
+#waited
+#serve
+#serves
+#served
+#die
+#dies
+#died
+#send
+#sends
+#sent
+#expect
+#expects
+#expected
+#build
+#builds
+#built
+#stay
+#stays
+#stayed
+#fall
+#falls
+#fell
+#fallen
+#cut
+#cuts
+#reach
+#reaches
+#reached
+#kill
+#kills
+#killed
+#remain
+#remains
+#remained
+#suggest
+#suggests
+#suggested
+#raise
+#raises
+#raised
+#pass
+#passes
+#passed
+#sell
+#sells
+#sold
+#require
+#requires
+#required
+#report
+#reports
+#reported
+#decide
+#decides
+#decided
+#pull
+#pulls
+#pulled
+#january
+#february
+#march
+#april
+#may
+#june
+#july
+#august
+#september
+#october
+#november
+#december
+#people
+#time
+#year
+#way
+#day
+#thing
+#man
+#world
+#life
+#hand
+#part
+#child
+#eye
+#woman
+#place
+#week
+#case
+#point
+#government
+#company
+#number
+#group
+#problem
+#fact
