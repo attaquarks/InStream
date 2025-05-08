@@ -1,9 +1,9 @@
-
 import pandas as pd
 # import numpy as np # Not explicitly used
 from sqlalchemy import func, desc, or_ # Removed 'and_' as it's not used
 from datetime import datetime, timedelta
 from collections import Counter
+from sqlalchemy import case
 
 from app.models.post import Post, Hashtag, Keyword # Keyword is not directly used here but good for context
 from database.db import session_scope
@@ -17,17 +17,36 @@ class DataAnalyzer:
         """Initialize data analyzer."""
         self.processor = DataProcessor()
     
-    def get_dashboard_summary(self, days=1):
+    def get_dashboard_summary(self, days=7):
         """Get summary statistics for the dashboard."""
-        threshold_date = datetime.utcnow() - timedelta(days=days)
-        
         with session_scope() as session:
+            threshold_date = datetime.utcnow() - timedelta(days=days)
+            
+            # Get total posts
             total_posts = session.query(func.count(Post.id)).filter(
                 Post.created_at >= threshold_date
-            ).scalar() or 0 # Ensure 0 if None
+            ).scalar() or 0
             
-            platform_counts_query = session.query(
-                Post.platform, 
+            # Get engagement metrics
+            engagement = session.query(
+                func.sum(Post.likes).label('total_likes'),
+                func.sum(Post.shares).label('total_shares')
+            ).filter(
+                Post.created_at >= threshold_date
+            ).first()
+            
+            # Sentiment distribution
+            sentiment_distribution = session.query(
+                func.sum(case((Post.sentiment_score < -0.05, 1), else_=0)).label('negative'),
+                func.sum(case((Post.sentiment_score >= -0.05, 1), else_=0)).label('neutral'),
+                func.sum(case((Post.sentiment_score > 0.05, 1), else_=0)).label('positive')
+            ).filter(
+                Post.created_at >= threshold_date
+            ).first()
+            
+            # Get platform distribution
+            platform_dist = session.query(
+                Post.platform,
                 func.count(Post.id)
             ).filter(
                 Post.created_at >= threshold_date
@@ -35,174 +54,213 @@ class DataAnalyzer:
                 Post.platform
             ).all()
             
-            engagement_stats = session.query(
-                func.sum(Post.likes).label('total_likes'),
-                func.sum(Post.shares).label('total_shares'),
-                func.sum(Post.comments).label('total_comments'),
-                func.avg(Post.likes).label('avg_likes'),
-                func.avg(Post.shares).label('avg_shares'),
-                func.avg(Post.comments).label('avg_comments')
+            return {
+                'total_posts': total_posts,
+                'engagement': {
+                    'total_likes': engagement.total_likes or 0,
+                    'total_shares': engagement.total_shares or 0
+                },
+                'sentiment': {
+                    'positive': sentiment_distribution.positive or 0,
+                    'negative': sentiment_distribution.negative or 0,
+                    'neutral': sentiment_distribution.neutral or 0
+                },
+                'platforms': dict(platform_dist)
+            }
+    
+    def get_trending_topics(self, days=7, limit=10):
+        """Get trending topics based on keyword frequency."""
+        with session_scope() as session:
+            threshold_date = datetime.utcnow() - timedelta(days=days)
+            
+            keywords = session.query(
+                Keyword.text,
+                func.sum(Keyword.frequency).label('total_frequency')
+            ).join(
+                Post, Keyword.post_id == Post.id
             ).filter(
                 Post.created_at >= threshold_date
-            ).first()
+            ).group_by(
+                Keyword.text
+            ).order_by(
+                desc('total_frequency')
+            ).limit(limit).all()
             
-            sentiment_distribution = self.processor.get_sentiment_distribution(days)
-            
-            summary = {
-                'time_period': f"{days} day(s)",
-                'total_posts': total_posts,
-                'platforms': {p: count for p, count in platform_counts_query},
-                'engagement': {
-                    'total_likes': int(engagement_stats.total_likes or 0) if engagement_stats else 0,
-                    'total_shares': int(engagement_stats.total_shares or 0) if engagement_stats else 0,
-                    'total_comments': int(engagement_stats.total_comments or 0) if engagement_stats else 0,
-                    'avg_likes': float(engagement_stats.avg_likes or 0) if engagement_stats else 0.0,
-                    'avg_shares': float(engagement_stats.avg_shares or 0) if engagement_stats else 0.0,
-                    'avg_comments': float(engagement_stats.avg_comments or 0) if engagement_stats else 0.0
-                },
-                'sentiment': sentiment_distribution
+            return {
+                'keywords': [{'text': k.text, 'frequency': int(k.total_frequency)} for k in keywords]
             }
-            
-            return summary
     
-    def get_trending_topics(self, days=1, limit=10):
-        """Get trending topics based on hashtags and keywords."""
-        trending_hashtags = self.processor.get_trending_hashtags(days, limit)
-        trending_keywords = self.processor.get_trending_keywords(days, limit)
-        
-        return {
-            'hashtags': trending_hashtags,
-            'keywords': trending_keywords
-        }
-    
-    def get_top_posts(self, days=1, metric='engagement', limit=10):
+    def get_top_posts(self, days=7, metric='engagement', limit=10):
         """Get top posts by specified metric."""
-        threshold_date = datetime.utcnow() - timedelta(days=days)
-        
         with session_scope() as session:
-            order_clause = None
-            if metric == 'likes':
-                order_clause = desc(Post.likes)
-            elif metric == 'shares':
-                order_clause = desc(Post.shares)
-            elif metric == 'comments':
-                order_clause = desc(Post.comments)
-            elif metric == 'engagement':
-                order_clause = desc(Post.likes + Post.shares + Post.comments)
-            elif metric == 'sentiment_positive':
-                order_clause = desc(Post.sentiment_score)
-            elif metric == 'sentiment_negative':
-                order_clause = Post.sentiment_score # Ascending for most negative
-            else: # Default to engagement
-                order_clause = desc(Post.likes + Post.shares + Post.comments)
+            threshold_date = datetime.utcnow() - timedelta(days=days)
             
-            posts_query = session.query(Post).filter(
+            query = session.query(Post).filter(
                 Post.created_at >= threshold_date
             )
-            if order_clause is not None: # Apply order if defined
-                posts_query = posts_query.order_by(order_clause)
-
-            posts = posts_query.limit(limit).all()
             
-            result = [post.to_dict() for post in posts]
+            if metric == 'engagement':
+                query = query.order_by(desc(Post.likes + Post.shares))
+            elif metric == 'sentiment':
+                query = query.order_by(desc(Post.sentiment_score))
+            elif metric == 'created_at_desc':
+                query = query.order_by(desc(Post.created_at))
             
-            # Add calculated engagement score if metric is engagement or default
-            if metric == 'engagement' or metric not in ['likes', 'shares', 'comments', 'sentiment_positive', 'sentiment_negative']:
-                for post_dict in result:
-                    post_dict['engagement_score'] = (
-                        (post_dict.get('likes',0) or 0) + 
-                        (post_dict.get('shares',0) or 0) + 
-                        (post_dict.get('comments',0) or 0)
-                    )
+            posts = query.limit(limit).all()
+            
+            return [{
+                'id': post.id,
+                'content': post.content,
+                'platform': post.platform,
+                'created_at': post.created_at.isoformat(),
+                'likes': post.likes,
+                'shares': post.shares,
+                'sentiment_score': post.sentiment_score
+            } for post in posts]
+    
+    def get_time_series_activity(self, days=7, interval='day'):
+        """Get post activity over time."""
+        with session_scope() as session:
+            end_date = datetime.utcnow()
+            threshold_date = end_date - timedelta(days=days)
+            
+            posts = session.query(
+                Post.created_at,
+                Post.platform
+            ).filter(
+                Post.created_at >= threshold_date,
+                Post.created_at <= end_date
+            ).all()
+            
+            # Group by platform and time interval
+            activity_data = {}
+            for post in posts:
+                platform = post.platform
+                if platform not in activity_data:
+                    activity_data[platform] = {}
+                
+                # Format date based on interval
+                if interval == 'hour':
+                    date_key = post.created_at.strftime('%Y-%m-%d %H:00')
+                elif interval == 'day':
+                    date_key = post.created_at.strftime('%Y-%m-%d')
+                else:  # week
+                    date_key = post.created_at.strftime('%Y-%W')
+                
+                activity_data[platform][date_key] = activity_data[platform].get(date_key, 0) + 1
+            
+            # Convert to list format
+            result = []
+            all_dates = sorted(set(
+                date for platform_data in activity_data.values()
+                for date in platform_data.keys()
+            ))
+            
+            for date in all_dates:
+                entry = {'date': date}
+                for platform in activity_data:
+                    entry[platform] = activity_data[platform].get(date, 0)
+                result.append(entry)
             
             return result
     
-    def get_time_series_activity(self, days=7, interval='day'):
-        """Get time series of post activity."""
-        return self.processor.get_post_activity(days, interval)
-    
     def get_time_series_engagement(self, days=7, platform=None):
-        """Get time series of engagement metrics."""
-        return self.processor.get_engagement_metrics(days, platform)
+        """Get engagement metrics over time."""
+        with session_scope() as session:
+            end_date = datetime.utcnow()
+            threshold_date = end_date - timedelta(days=days)
+            
+            query = session.query(
+                Post.created_at,
+                func.avg(Post.likes).label('avg_likes'),
+                func.avg(Post.shares).label('avg_shares')
+            ).filter(
+                Post.created_at >= threshold_date,
+                Post.created_at <= end_date
+            )
+            
+            if platform:
+                query = query.filter(Post.platform == platform)
+            
+            query = query.group_by(
+                func.date(Post.created_at)
+            ).order_by(
+                func.date(Post.created_at)
+            )
+            
+            results = query.all()
+            
+            return [{
+                'date': result.created_at.strftime('%Y-%m-%d'),
+                'avg_likes': float(result.avg_likes or 0),
+                'avg_shares': float(result.avg_shares or 0)
+            } for result in results]
     
     def get_hashtag_network(self, days=7, limit=20):
         """Get hashtag co-occurrence network."""
-        threshold_date = datetime.utcnow() - timedelta(days=days)
-        
         with session_scope() as session:
-            # Using SQLAlchemy relationship to get posts and their hashtags
-            posts_with_hashtags_query = session.query(Post).join(Post.hashtags).filter(
+            threshold_date = datetime.utcnow() - timedelta(days=days)
+            
+            # Get all hashtags and their posts within the time range
+            hashtags = session.query(Hashtag).join(
+                Hashtag.posts
+            ).filter(
                 Post.created_at >= threshold_date
-            ).options(
-                # from sqlalchemy.orm import selectinload # if needed for optimization
-                # selectinload(Post.hashtags)
-            ).distinct() # Ensure each post is processed once if multiple hashtags link it in join
-
-            all_posts = posts_with_hashtags_query.all()
-
-            co_occurrences = {}
-            hashtag_counts = Counter()
+            ).all()
             
-            for post in all_posts:
-                # Extract hashtag texts from the Hashtag objects associated with the post
-                current_post_hashtags = [h.text for h in post.hashtags]
-                if not current_post_hashtags:
-                    continue
-
-                hashtag_counts.update(current_post_hashtags)
-                
-                # Create unique pairs of hashtags for this post
-                # Use a set to avoid duplicate pairs within the same post if a hashtag appears multiple times (though usually not the case)
-                unique_hashtags_for_post = sorted(list(set(current_post_hashtags)))
-
-                for i in range(len(unique_hashtags_for_post)):
-                    for j in range(i + 1, len(unique_hashtags_for_post)):
-                        # Ensure pair elements are sorted for consistent keying
-                        pair = tuple(sorted([unique_hashtags_for_post[i], unique_hashtags_for_post[j]]))
-                        co_occurrences[pair] = co_occurrences.get(pair, 0) + 1
+            # Build co-occurrence matrix
+            co_occurrence = {}
+            for hashtag in hashtags:
+                for post in hashtag.posts:
+                    if post.created_at >= threshold_date:
+                        for other_hashtag in post.hashtags:
+                            if other_hashtag.id != hashtag.id:
+                                key = tuple(sorted([hashtag.text, other_hashtag.text]))
+                                co_occurrence[key] = co_occurrence.get(key, 0) + 1
             
-            if not hashtag_counts:
-                return {'nodes': [], 'links': []}
-
-            top_hashtags_list = [h_text for h_text, _ in hashtag_counts.most_common(limit)]
+            # Convert to list format
+            edges = [
+                {
+                    'source': pair[0],
+                    'target': pair[1],
+                    'weight': count
+                }
+                for pair, count in sorted(
+                    co_occurrence.items(),
+                    key=lambda x: x[1],
+                    reverse=True
+                )[:limit]
+            ]
             
-            filtered_co_occurrences = {
-                pair: count for pair, count in co_occurrences.items()
-                if pair[0] in top_hashtags_list and pair[1] in top_hashtags_list and pair[0] != pair[1]
-            }
-            
-            nodes = [{'id': h_text, 'count': hashtag_counts[h_text]} for h_text in top_hashtags_list]
-            links = [{'source': p[0], 'target': p[1], 'value': c} 
-                    for p, c in filtered_co_occurrences.items()]
+            # Get unique nodes
+            nodes = set()
+            for edge in edges:
+                nodes.add(edge['source'])
+                nodes.add(edge['target'])
             
             return {
-                'nodes': nodes,
-                'links': links
+                'nodes': [{'id': node} for node in nodes],
+                'edges': edges
             }
 
-    def search_posts(self, query_string, days=30, limit=50): # Renamed 'query' to 'query_string' for clarity
+    def search_posts(self, query_string, days=30, limit=50):
         """Search posts by content."""
-        threshold_date = datetime.utcnow() - timedelta(days=days)
-        
         with session_scope() as session:
-            search_terms = query_string.split()
-            conditions = []
+            threshold_date = datetime.utcnow() - timedelta(days=days)
             
-            for term in search_terms:
-                if term: # Ensure term is not empty
-                    conditions.append(Post.content.ilike(f'%{term}%')) # Case-insensitive search
-            
-            posts_query = session.query(Post).filter(
-                Post.created_at >= threshold_date
-            )
-
-            if conditions: # Apply search conditions if any
-                posts_query = posts_query.filter(or_(*conditions))
-            
-            posts = posts_query.order_by(
-                desc(Post.created_at) # Order by most recent
+            posts = session.query(Post).filter(
+                Post.created_at >= threshold_date,
+                Post.content.ilike(f'%{query_string}%')
+            ).order_by(
+                desc(Post.created_at)
             ).limit(limit).all()
             
-            result = [post.to_dict() for post in posts]
-            
-            return result
+            return [{
+                'id': post.id,
+                'content': post.content,
+                'platform': post.platform,
+                'created_at': post.created_at.isoformat(),
+                'likes': post.likes,
+                'shares': post.shares,
+                'sentiment_score': post.sentiment_score
+            } for post in posts]
