@@ -1,15 +1,14 @@
-
 from flask import Flask, render_template, jsonify, request # Removed send_from_directory
 import os
 # import json # Not used
 from datetime import datetime
 from flask_cors import CORS # Import CORS
 
-from app.config import get_config
+from .config import get_config
 from database.db import init_db
-from app.services.collector import collect_and_save_data
-from app.services.processor import DataProcessor
-from app.services.analyzer import DataAnalyzer
+from .services.collector import collect_and_save_data
+from .services.processor import DataProcessor
+from .services.analyzer import DataAnalyzer
 from scheduler.tasks import init_scheduler
 from werkzeug.utils import secure_filename # For file uploads
 import logging
@@ -381,18 +380,23 @@ def register_routes(app):
 
     @app.route('/api/process', methods=['POST'])
     def process_data_route():
-        """Manually trigger data processing for all unprocessed data."""
-        try:
-            keyword_count = processor.extract_keywords() # Process all unprocessed
-            sentiment_count = processor.analyze_sentiment() # Process all unprocessed
-            return jsonify({
-                'status': 'success',
-                'keywords_processed': keyword_count,
-                'sentiment_processed': sentiment_count
-            })
-        except Exception as e:
-            logger.error(f"Error in /api/process: {e}", exc_info=True)
-            return jsonify({'status': 'error', 'message': str(e)}), 500
+        """Process uploaded data file."""
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file part'}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            # Process the file
+            try:
+                processor.process_file(filepath)
+                return jsonify({'message': 'File processed successfully'})
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Invalid file type'}), 400
 
 
 # Create the Flask application instance
@@ -407,4 +411,3 @@ if __name__ == '__main__':
     logger.info(f"Starting Flask server on {host}:{port} with debug={debug_mode}")
     # Run the app using Flask's development server
     app.run(debug=debug_mode, host=host, port=port)
-```
