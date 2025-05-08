@@ -1,83 +1,443 @@
+{% extends "layout.html" %}
 
-{% extends "base.html" %}
+{% block title %}Dashboard - Social Media Analytics{% endblock %}
 
-{% block title %}Dashboard - InStream{% endblock %}
-
-{% block head_extra %}
-    <!-- Add links to CSS for charting libraries or custom dashboard styles -->
-    <!-- e.g., <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.min.css"> -->
+{% block additional_css %}
+<style>
+    .dashboard-card {
+        transition: all 0.3s ease;
+    }
+    
+    .dashboard-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .sentiment-positive {
+        color: #28a745; /* Bootstrap success green */
+    }
+    
+    .sentiment-neutral {
+        color: #6c757d; /* Bootstrap secondary grey */
+    }
+    
+    .sentiment-negative {
+        color: #dc3545; /* Bootstrap danger red */
+    }
+    
+    .filter-controls {
+        background-color: #f8f9fa; /* Light grey background */
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .data-table {
+        font-size: 0.85rem;
+    }
+    
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    
+    .metric-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .trend-indicator {
+        font-size: 0.875rem;
+        margin-left: 0.5rem;
+    }
+    
+    .trend-up {
+        color: #28a745;
+    }
+    
+    .trend-down {
+        color: #dc3545;
+    }
+    #wordCloudContainer text {
+        cursor: pointer;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
-    <h2>Analytics Dashboard</h2>
-    <p>Explore insights from collected social media data.</p>
-
-    <!-- Filters Section -->
-    <div class="filters">
-        <label for="timeRange">Time Range:</label>
-        <select id="timeRange">
-            <option value="1">Last 24 Hours</option>
-            <option value="7" selected>Last 7 Days</option>
-            <option value="30">Last 30 Days</option>
-        </select>
-        <button id="applyFiltersButton">Apply Filters</button>
+<!-- Dashboard Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">Social Media Analytics Dashboard</h1>
+    <div class="btn-group">
+        <button type="button" class="btn btn-outline-secondary" id="refreshDashboardBtn">
+            <i class="fas fa-sync me-1"></i>Refresh
+        </button>
+        <button type="button" class="btn btn-outline-primary" id="exportDashboardBtn">
+            <i class="fas fa-download me-1"></i>Export
+        </button>
+        <button type="button" class="btn btn-primary" id="dashboardCollectDataBtn">
+            <i class="fas fa-plus me-1"></i>New Collection
+        </button>
     </div>
+</div>
 
-    <!-- Summary Statistics Section -->
-    <section id="summaryStats" class="dashboard-section">
-        <h3>Summary Statistics</h3>
-        <div id="totalPosts">Total Posts: Loading...</div>
-        <div id="platformDistribution">Platform Distribution: Loading...</div>
-        <!-- Add more summary elements -->
-    </section>
-
-    <!-- Charts Section -->
-    <section id="charts" class="dashboard-section">
-        <h3>Visualizations</h3>
-        <div>
-            <h4>Activity Over Time</h4>
-            <canvas id="activityChartCanvas" width="400" height="200"></canvas>
+<!-- Filter Controls -->
+<div class="filter-controls">
+    <div class="row g-3">
+        <div class="col-md-3">
+            <label for="filterDataSource" class="form-label">Data Source</label>
+            <select class="form-select" id="filterDataSource">
+                <option value="all" selected>All Sources</option>
+                <option value="twitter">Twitter</option>
+                <!-- Add other sources dynamically if needed -->
+            </select>
         </div>
-        <div>
-            <h4>Sentiment Distribution</h4>
-            <canvas id="sentimentChartCanvas" width="400" height="200"></canvas>
+        <div class="col-md-3">
+            <label for="filterKeyword" class="form-label">Keyword</label>
+            <input type="text" class="form-control" id="filterKeyword" placeholder="e.g., AI, tech">
         </div>
-        <!-- Add more chart canvases -->
-    </section>
+        <div class="col-md-4">
+            <label for="filterTimeRange" class="form-label">Time Range</label>
+            <select class="form-select" id="filterTimeRange">
+                <option value="1">Last 24 Hours</option>
+                <option value="7" selected>Last 7 Days</option>
+                <option value="30">Last 30 Days</option>
+                <option value="90">Last 90 Days</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <button class="btn btn-primary w-100" id="applyFiltersBtn">Apply Filters</button>
+        </div>
+    </div>
+</div>
 
-    <!-- Top Posts Section -->
-    <section id="topPosts" class="dashboard-section">
-        <h3>Top Posts</h3>
-        <ul id="topPostsList">
-            <li>Loading...</li>
-        </ul>
-    </section>
+<!-- Quick Metrics -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card dashboard-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <div class="metric-label">Total Posts</div>
+                    <div class="text-primary">
+                        <i class="fas fa-comment"></i>
+                    </div>
+                </div>
+                <div class="metric-value" id="metricTotalPosts">0</div>
+                <div class="d-flex align-items-center">
+                    <span class="small" id="metricPostsChange">0%</span>
+                    <span class="trend-indicator" id="metricPostsTrend">
+                        <!-- Trend icon here -->
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card dashboard-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <div class="metric-label">Avg Engagement</div>
+                    <div class="text-success">
+                        <i class="fas fa-thumbs-up"></i>
+                    </div>
+                </div>
+                <div class="metric-value" id="metricEngagementRate">0%</div>
+                 <div class="d-flex align-items-center">
+                    <span class="small" id="metricEngagementChange">0%</span>
+                    <span class="trend-indicator" id="metricEngagementTrend">
+                        <!-- Trend icon here -->
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card dashboard-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <div class="metric-label">Avg Sentiment</div>
+                    <div class="text-warning">
+                        <i class="fas fa-smile"></i>
+                    </div>
+                </div>
+                <div class="metric-value" id="metricSentimentScore">0.0</div>
+                <div class="d-flex align-items-center">
+                    <span class="small" id="metricSentimentChange">0%</span>
+                    <span class="trend-indicator" id="metricSentimentTrend">
+                        <!-- Trend icon here -->
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card dashboard-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <div class="metric-label">Trending Topics</div>
+                    <div class="text-info">
+                        <i class="fas fa-fire"></i>
+                    </div>
+                </div>
+                <div class="metric-value" id="metricTrendingTopicsCount">0</div>
+                 <div class="d-flex align-items-center">
+                    <span class="small" id="metricTrendingTopicsChange">0%</span>
+                    <span class="trend-indicator" id="metricTrendingTopicsTrend">
+                        <!-- Trend icon here -->
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-    <!-- Trending Topics Section -->
-    <section id="trendingTopics" class="dashboard-section">
-        <h3>Trending Topics</h3>
-        <div id="trendingHashtags">Hashtags: Loading...</div>
-        <div id="trendingKeywords">Keywords: Loading...</div>
-    </section>
+<!-- Main Dashboard Charts -->
+<div class="row g-4 mb-4">
+    <!-- Activity Over Time Chart -->
+    <div class="col-lg-8">
+        <div class="card dashboard-card h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Activity Over Time</h5>
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-outline-secondary active" data-chart-view="day">Daily</button>
+                    <button type="button" class="btn btn-outline-secondary" data-chart-view="week">Weekly</button>
+                    <button type="button" class="btn btn-outline-secondary" data-chart-view="month">Monthly</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="activityChart" style="max-height: 300px;"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sentiment Distribution -->
+    <div class="col-lg-4">
+        <div class="card dashboard-card h-100">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">Sentiment Distribution</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-center">
+                    <canvas id="sentimentChart" style="max-height: 250px;"></canvas>
+                </div>
+                <div class="row text-center mt-3">
+                    <div class="col-4">
+                        <div class="sentiment-positive">
+                            <i class="fas fa-smile fa-2x mb-2"></i>
+                            <div class="fw-bold" id="sentimentPositiveCount">0</div>
+                            <div class="small">Positive</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="sentiment-neutral">
+                            <i class="fas fa-meh fa-2x mb-2"></i>
+                            <div class="fw-bold" id="sentimentNeutralCount">0</div>
+                            <div class="small">Neutral</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="sentiment-negative">
+                            <i class="fas fa-frown fa-2x mb-2"></i>
+                            <div class="fw-bold" id="sentimentNegativeCount">0</div>
+                            <div class="small">Negative</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
+<!-- Word Cloud and Top Topics -->
+<div class="row g-4 mb-4">
+    <!-- Word Cloud -->
+    <div class="col-lg-6">
+        <div class="card dashboard-card h-100">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">Word Cloud (Trending Keywords)</h5>
+            </div>
+            <div class="card-body">
+                <div id="wordCloudContainer" style="height: 300px; width: 100%;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Top Topics -->
+    <div class="col-lg-6">
+        <div class="card dashboard-card h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Top Hashtags</h5>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="topicsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        Sort by
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="topicsDropdown">
+                        <li><a class="dropdown-item active" href="#" data-sort-hashtags="volume">Volume</a></li>
+                         <li><a class="dropdown-item" href="#" data-sort-hashtags="posts">Posts</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive" style="max-height: 280px;">
+                    <table class="table table-hover data-table">
+                        <thead>
+                            <tr>
+                                <th>Hashtag</th>
+                                <th>Posts</th>
+                                <!-- <th>Engagement</th> -->
+                                <!-- <th>Sentiment</th> -->
+                                <!-- <th>Trend</th> -->
+                            </tr>
+                        </thead>
+                        <tbody id="topHashtagsTable">
+                            <!-- Table content will be populated via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Platform Distribution and Engagement Metrics -->
+<div class="row g-4 mb-4">
+    <!-- Platform Distribution -->
+    <div class="col-lg-4">
+        <div class="card dashboard-card h-100">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">Platform Distribution</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-center">
+                    <canvas id="platformChart" style="max-height: 250px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Engagement Metrics Over Time -->
+    <div class="col-lg-8">
+        <div class="card dashboard-card h-100">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">Engagement Metrics Over Time</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="engagementChart" style="max-height: 250px;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Posts -->
+<div class="card dashboard-card mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">Recent Posts</h5>
+        <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="postsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                Filter by Sentiment
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="postsDropdown">
+                <li><a class="dropdown-item active" href="#" data-filter-posts="all">All</a></li>
+                <li><a class="dropdown-item" href="#" data-filter-posts="positive">Positive</a></li>
+                <li><a class="dropdown-item" href="#" data-filter-posts="neutral">Neutral</a></li>
+                <li><a class="dropdown-item" href="#" data-filter-posts="negative">Negative</a></li>
+                <!-- <li><a class="dropdown-item" href="#" data-filter-posts="highEngagement">High Engagement</a></li> -->
+            </ul>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover data-table">
+                <thead>
+                    <tr>
+                        <th>Platform</th>
+                        <th>Author</th>
+                        <th>Content</th>
+                        <th>Sentiment</th>
+                        <th>Likes</th>
+                        <th>Shares</th>
+                        <th>Date</th>
+                        <!-- <th>Actions</th> -->
+                    </tr>
+                </thead>
+                <tbody id="recentPostsTable">
+                    <!-- Table content will be populated via JavaScript -->
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex justify-content-center mt-3">
+            <nav aria-label="Post navigation">
+                <ul class="pagination" id="postsPagination">
+                    <!-- Pagination items will be populated by JS -->
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
-{% block scripts_extra %}
-    <!-- Add links to JavaScript for charting libraries -->
-    <!-- e.g., <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
-    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-    <script>
-        // Initialize dashboard-specific JS after DOM is loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            // Example: Apply filters on button click
-            document.getElementById('applyFiltersButton').addEventListener('click', function() {
-                const days = document.getElementById('timeRange').value;
-                // Re-fetch data based on new time range
-                console.log(`Applying filters for ${days} days.`);
-                // Example: fetchSummaryData(days); (assuming fetchSummaryData is modified to take days)
-                // You would call functions to update all relevant dashboard sections
+{% block additional_js %}
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-cloud@1.2.7/build/d3.layout.cloud.min.js"></script>
+<script src="{{ url_for('static', filename='js/dashboard_charts.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard_main.js') }}"></script>
+
+<script>
+    // Initialize dashboard on document ready
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load dashboard data
+        loadDashboardData();
+        
+        // Setup event listeners
+        document.getElementById('refreshDashboardBtn').addEventListener('click', function() {
+            loadDashboardData();
+        });
+        
+        document.getElementById('dashboardCollectDataBtn').addEventListener('click', function() {
+            const modal = new bootstrap.Modal(document.getElementById('collectDataModal'));
+            modal.show();
+        });
+        
+        document.getElementById('applyFiltersBtn').addEventListener('click', function() {
+            loadDashboardData();
+        });
+        
+        document.getElementById('exportDashboardBtn').addEventListener('click', function() {
+            exportDashboard(); // This function needs to be defined in dashboard_main.js
+        });
+        
+        // Setup chart view switchers for Activity Chart
+        document.querySelectorAll('#activityChart + .card-header [data-chart-view], .card-header [data-chart-view]').forEach(function(button) {
+            button.addEventListener('click', function() {
+                document.querySelectorAll('#activityChart + .card-header [data-chart-view], .card-header [data-chart-view]').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                this.classList.add('active');
+                updateActivityChart(this.dataset.chartView);
             });
         });
-    </script>
+        
+        // Setup topic sort handlers (for hashtags)
+        document.querySelectorAll('[data-sort-hashtags]').forEach(function(item) {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.querySelectorAll('[data-sort-hashtags]').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+                sortHashtags(this.dataset.sortHashtags); // Function to be defined in dashboard_main.js
+            });
+        });
+        
+        // Setup post filter handlers
+        document.querySelectorAll('[data-filter-posts]').forEach(function(item) {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.querySelectorAll('[data-filter-posts]').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+                filterPosts(this.dataset.filterPosts); // Function to be defined in dashboard_main.js
+            });
+        });
+    });
+</script>
 {% endblock %}
+
+    

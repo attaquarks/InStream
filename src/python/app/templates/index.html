@@ -1,19 +1,271 @@
+{% extends "layout.html" %}
 
-{% extends "base.html" %}
+{% block title %}Home - Social Media Analytics{% endblock %}
 
-{% block title %}Home - InStream{% endblock %}
+{% block additional_css %}
+<style>
+    .feature-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .hero-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 6rem 0;
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-    <h2>Welcome to InStream</h2>
-    <p>Your comprehensive solution for social media analytics.</p>
-    <p><a href="{{ url_for('dashboard') }}">Go to Dashboard</a></p>
-    
-    <h3>Features:</h3>
-    <ul>
-        <li>Real-time data collection</li>
-        <li>Advanced sentiment analysis</li>
-        <li>Trending topic identification</li>
-        <li>Interactive visualizations</li>
-        <!-- Add more features -->
-    </ul>
+<!-- Hero Section -->
+<section class="hero-section text-center">
+    <div class="container">
+        <h1 class="display-4 fw-bold mb-4">Advanced Social Media Analytics</h1>
+        <p class="lead mb-5">Track, analyze, and visualize social media trends with powerful analytics tools</p>
+        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-light btn-lg px-4 gap-3">
+                <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+            </a>
+            <button class="btn btn-outline-light btn-lg px-4" id="homeCollectDataBtn">
+                <i class="fas fa-sync me-2"></i>Collect Data
+            </button>
+        </div>
+    </div>
+</section>
+
+<!-- Feature Cards Section -->
+<section class="container mb-5">
+    <h2 class="text-center mb-4">Key Features</h2>
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card h-100 feature-card">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-chart-line fa-3x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">Real-time Analytics</h5>
+                    <p class="card-text">Monitor social media trends as they happen with real-time data collection and analysis.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100 feature-card">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-brain fa-3x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">Sentiment Analysis</h5>
+                    <p class="card-text">Understand public opinion with advanced sentiment analysis powered by AI.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100 feature-card">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-file-alt fa-3x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">Comprehensive Reports</h5>
+                    <p class="card-text">Generate detailed reports with visualizations to support data-driven decisions.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Quick Stats Section -->
+<section class="container-fluid bg-light py-5 mb-5">
+    <div class="container">
+        <h2 class="text-center mb-4">System Overview</h2>
+        <div class="row text-center">
+            <div class="col-md-3 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h3 class="display-4 fw-bold text-primary" id="statPostsAnalyzed">0</h3>
+                        <p class="text-muted">Posts Analyzed</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h3 class="display-4 fw-bold text-success" id="statSentimentScore">0.0</h3>
+                        <p class="text-muted">Avg. Sentiment Score</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h3 class="display-4 fw-bold text-info" id="statTrendingTopics">0</h3>
+                        <p class="text-muted">Trending Topics</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h3 class="display-4 fw-bold text-warning" id="statDataSources">0</h3>
+                        <p class="text-muted">Active Data Sources</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Recent Trends Chart -->
+<section class="container mb-5">
+    <div class="card">
+        <div class="card-header bg-white">
+            <h5 class="card-title mb-0">Recent Trends Overview</h5>
+        </div>
+        <div class="card-body">
+            <canvas id="trendOverviewChart" style="max-height: 300px;"></canvas>
+        </div>
+    </div>
+</section>
+
+<!-- Get Started Section -->
+<section class="container mb-5">
+    <div class="row align-items-center">
+        <div class="col-md-6">
+            <h2>Get started in minutes</h2>
+            <p class="lead">Our social media analytics platform makes it easy to start gathering insights today.</p>
+            <ol class="list-group list-group-numbered mb-4">
+                <li class="list-group-item">Select your data sources</li>
+                <li class="list-group-item">Choose keywords to track</li>
+                <li class="list-group-item">Set your timeframe</li>
+                <li class="list-group-item">Start collecting insights</li>
+            </ol>
+            <button class="btn btn-primary btn-lg" id="getStartedBtn">
+                <i class="fas fa-rocket me-2"></i>Get Started
+            </button>
+        </div>
+        <div class="col-md-6 text-center">
+            <img src="{{ url_for('static', filename='images/analytics-preview.svg') }}" alt="Analytics Preview" class="img-fluid" data-ai-hint="analytics dashboard">
+        </div>
+    </div>
+</section>
 {% endblock %}
+
+{% block additional_js %}
+<script>
+    // Initialize the home page stats with animation
+    function animateValue(id, start, end, duration, isFloat = false) {
+        const obj = document.getElementById(id);
+        if (!obj) return;
+        let startTimestamp = null;
+        const step = (timestamp) => {
+            if (!startTimestamp) startTimestamp = timestamp;
+            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+            let value;
+            if (isFloat) {
+                value = (progress * (end - start) + start).toFixed(1);
+            } else {
+                value = Math.floor(progress * (end - start) + start);
+            }
+            
+            obj.innerHTML = value;
+            if (progress < 1) {
+                window.requestAnimationFrame(step);
+            }
+        };
+        window.requestAnimationFrame(step);
+    }
+
+    // Fetch system stats
+    fetch("{{ url_for('system_stats_api') }}")
+        .then(response => response.json())
+        .then(data => {
+            // Animate the counters
+            animateValue('statPostsAnalyzed', 0, data.postsAnalyzed || 0, 2000);
+            animateValue('statSentimentScore', 0, data.avgSentiment || 0, 2000, true);
+            animateValue('statTrendingTopics', 0, data.trendingTopics || 0, 2000);
+            animateValue('statDataSources', 0, data.dataSources || 0, 2000);
+            
+            // Initialize trend overview chart
+            const ctx = document.getElementById('trendOverviewChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.trendLabels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
+                    datasets: [
+                        {
+                            label: 'Mentions',
+                            data: data.mentionsData || [0,0,0,0,0,0,0],
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Sentiment',
+                            data: data.sentimentData || [0,0,0,0,0,0,0],
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Mentions'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Sentiment Score (0-10)'
+                            },
+                            min: 0,
+                            max: 10,
+                            grid: {
+                                drawOnChartArea: false
+                            }
+                        }
+                    }
+                }
+            });
+        })
+        .catch(error => console.error('Error fetching system stats:', error));
+    
+    // Connect home page buttons to functionality
+    document.getElementById('homeCollectDataBtn').addEventListener('click', function() {
+        const modal = new bootstrap.Modal(document.getElementById('collectDataModal'));
+        modal.show();
+    });
+    
+    document.getElementById('getStartedBtn').addEventListener('click', function() {
+        const modal = new bootstrap.Modal(document.getElementById('collectDataModal'));
+        modal.show();
+    });
+</script>
+{% endblock %}
+
+    
