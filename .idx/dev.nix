@@ -7,6 +7,11 @@
   packages = [
     pkgs.nodejs_20
     pkgs.zulu
+    pkgs.python39Full
+    pkgs.python312Packages.pip
+    pkgs.python312Packages.flask
+    pkgs.python312Packages.nltk
+    
   ];
   # Sets environment variables in the workspace
   env = {};
