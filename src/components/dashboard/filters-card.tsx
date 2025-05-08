@@ -6,61 +6,114 @@ import { useState } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search } from "lucide-react";
 
 interface FiltersCardProps {
-  initialQuery: string;
-  onSearch: (query: string) => void;
+  initialFilters: {
+    source: string;
+    keyword: string;
+    timeRange: string;
+  };
+  onSearch: (filters: { source: string; keyword: string; timeRange: string }) => void;
   isLoading: boolean;
+  keywords?: string[]; // Optional list of keywords/hashtags for dropdown
 }
 
-const FiltersCard: FC<FiltersCardProps> = ({ initialQuery, onSearch, isLoading }) => {
-  const [currentQuery, setCurrentQuery] = useState(initialQuery);
+const FiltersCard: FC<FiltersCardProps> = ({ initialFilters, onSearch, isLoading, keywords = [] }) => {
+  const [currentSource, setCurrentSource] = useState(initialFilters.source);
+  const [currentKeyword, setCurrentKeyword] = useState(initialFilters.keyword);
+  const [currentTimeRange, setCurrentTimeRange] = useState(initialFilters.timeRange);
 
   const handleSearch = () => {
-    if (currentQuery.trim()) {
-      onSearch(currentQuery.trim());
-    }
+    onSearch({
+      source: currentSource,
+      keyword: currentKeyword.trim() || 'all', // Default to 'all' if empty
+      timeRange: currentTimeRange,
+    });
   };
 
   return (
-    <Card>
+    <Card className="shadow-sm">
       <CardHeader>
         <CardTitle className="text-lg">Filter Options</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex w-full items-center space-x-2">
-          <Input
-            type="text"
-            placeholder="Enter topic or keyword (e.g., Next.js)"
-            value={currentQuery}
-            onChange={(e) => setCurrentQuery(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                handleSearch();
-              }
-            }}
-            className="bg-background text-foreground placeholder:text-muted-foreground" 
-            disabled={isLoading}
-          />
-          <Button type="submit" onClick={handleSearch} disabled={isLoading}>
-            <Search className="mr-2 h-4 w-4" /> Search
-          </Button>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          {/* Data Source */}
+          <div className="space-y-1">
+            <Label htmlFor="filterDataSource">Data Source</Label>
+            <Select value={currentSource} onValueChange={setCurrentSource} disabled={isLoading}>
+              <SelectTrigger id="filterDataSource">
+                <SelectValue placeholder="Select source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sources</SelectItem>
+                <SelectItem value="twitter">Twitter</SelectItem>
+                {/* Add other sources as needed */}
+                {/* <SelectItem value="facebook">Facebook</SelectItem> */}
+                {/* <SelectItem value="instagram">Instagram</SelectItem> */}
+                {/* <SelectItem value="linkedin">LinkedIn</SelectItem> */}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Keyword Input/Select */}
+           <div className="space-y-1">
+              <Label htmlFor="filterKeyword">Keyword</Label>
+               <Input
+                  id="filterKeyword"
+                  type="text"
+                  placeholder="Enter keyword or select"
+                  value={currentKeyword === 'all' ? '' : currentKeyword} // Show empty if 'all'
+                  onChange={(e) => setCurrentKeyword(e.target.value || 'all')} // Set to 'all' if cleared
+                  className="bg-background text-foreground placeholder:text-muted-foreground"
+                  disabled={isLoading}
+                  list="keyword-suggestions" // Link to datalist
+                />
+                {/* Datalist for suggestions (optional enhancement) */}
+                <datalist id="keyword-suggestions">
+                   {keywords.map(kw => <option key={kw} value={kw} />)}
+                 </datalist>
+
+               {/* Or Use Select if you prefer a dropdown */}
+               {/* <Select value={currentKeyword} onValueChange={setCurrentKeyword} disabled={isLoading}>
+                <SelectTrigger id="filterKeyword">
+                  <SelectValue placeholder="Select keyword" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Keywords</SelectItem>
+                  {keywords.map(kw => (
+                    <SelectItem key={kw} value={kw}>{kw}</SelectItem>
+                  ))}
+                 </SelectContent>
+               </Select> */}
+          </div>
+
+          {/* Time Range */}
+          <div className="space-y-1">
+            <Label htmlFor="filterTimeRange">Time Range</Label>
+            <Select value={currentTimeRange} onValueChange={setCurrentTimeRange} disabled={isLoading}>
+              <SelectTrigger id="filterTimeRange">
+                <SelectValue placeholder="Select time range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Last 24 Hours</SelectItem>
+                <SelectItem value="7">Last 7 Days</SelectItem>
+                <SelectItem value="30">Last 30 Days</SelectItem>
+                <SelectItem value="90">Last 90 Days</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Search Button */}
+          <div>
+            <Button onClick={handleSearch} disabled={isLoading} className="w-full">
+              <Search className="mr-2 h-4 w-4" /> Apply Filters
+            </Button>
+          </div>
         </div>
-        {/* Placeholder for time range filter if added later */}
-        {/* <div className="mt-4">
-          <Label htmlFor="time-range">Time Range (Coming Soon)</Label>
-          <Select disabled>
-            <SelectTrigger id="time-range">
-              <SelectValue placeholder="Last 24 hours" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="24h">Last 24 hours</SelectItem>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-            </SelectContent>
-          </Select>
-        </div> */}
       </CardContent>
     </Card>
   );

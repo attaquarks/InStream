@@ -4,163 +4,191 @@
 import { useState, useEffect, useCallback } from 'react';
 import DashboardHeader from '@/components/dashboard/dashboard-header';
 import FiltersCard from '@/components/dashboard/filters-card';
-import TrendingSummaryCard from '@/components/dashboard/trending-summary-card';
+import MetricCard from '@/components/dashboard/metric-card';
 import ActivityChartCard, { type ActivityDataPoint } from '@/components/dashboard/activity-chart-card';
 import SentimentAnalysisCard from '@/components/dashboard/sentiment-analysis-card';
-import TopPostsCard from '@/components/dashboard/top-posts-card';
-import { fetchTweets, type Tweet } from '@/services/twitter';
-import { summarizeTrendingTopics } from '@/ai/flows/summarize-trending-topics';
-import { analyzeSentiment, type SentimentAnalysisOutput } from '@/ai/flows/sentiment-analysis-insights';
+import WordCloudCard from '@/components/dashboard/word-cloud-card';
+import TopHashtagsCard from '@/components/dashboard/top-hashtags-card';
+import PlatformDistributionCard from '@/components/dashboard/platform-distribution-card';
+import EngagementMetricsCard from '@/components/dashboard/engagement-metrics-card';
+import RecentPostsTable from '@/components/dashboard/recent-posts-table';
+
+import { fetchTweets, type Tweet } from '@/services/twitter'; // Keep for potential future use or parts of data
+import { summarizeTrendingTopics } from '@/ai/flows/summarize-trending-topics'; // Keep for potential future use or parts of data
+import { analyzeSentiment, type SentimentAnalysisOutput } from '@/ai/flows/sentiment-analysis-insights'; // Keep for potential future use or parts of data
 import { useToast } from "@/hooks/use-toast";
 
+import { fetchDashboardData, type DashboardData } from '@/services/dashboard'; // Import new service
+import { TrendingUp, MessageSquareText, Smile, Users } from 'lucide-react'; // Icons for metric cards
+
 const DEFAULT_QUERY = "AI trends";
+const DEFAULT_SOURCE = "all";
+const DEFAULT_TIME_RANGE = "7"; // Default to 7 days
 
 export default function DashboardPage() {
-  const [query, setQuery] = useState(DEFAULT_QUERY);
-  const [tweets, setTweets] = useState<Tweet[]>([]);
-  const [trendingSummary, setTrendingSummary] = useState<string | null>(null);
-  const [sentimentResult, setSentimentResult] = useState<SentimentAnalysisOutput | null>(null);
-  const [activityData, setActivityData] = useState<ActivityDataPoint[]>([]);
-  
-  const [isLoadingTweets, setIsLoadingTweets] = useState(false);
-  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
-  const [isLoadingSentiment, setIsLoadingSentiment] = useState(false);
-  
-  const [errorTweets, setErrorTweets] = useState<string | null>(null);
-  const [errorSummary, setErrorSummary] = useState<string | null>(null);
-  const [errorSentiment, setErrorSentiment] = useState<string | null>(null);
-
+  const [filters, setFilters] = useState({
+    source: DEFAULT_SOURCE,
+    keyword: DEFAULT_QUERY,
+    timeRange: DEFAULT_TIME_RANGE,
+  });
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const aggregateActivityData = (fetchedTweets: Tweet[]): ActivityDataPoint[] => {
-    if (!fetchedTweets || fetchedTweets.length === 0) return [];
-    
-    const countsByHour: Record<string, number> = {};
-    fetchedTweets.forEach(tweet => {
-      try {
-        const date = new Date(tweet.createdAt);
-        const hourKey = `${String(date.getHours()).padStart(2, '0')}:00`; // "HH:00"
-        countsByHour[hourKey] = (countsByHour[hourKey] || 0) + 1;
-      } catch (e) {
-        console.warn("Invalid date format for tweet:", tweet.id, tweet.createdAt);
-      }
-    });
-    
-    return Object.entries(countsByHour)
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date)); // Sort by hour
-  };
-
-  const loadData = useCallback(async (currentQuery: string) => {
-    setIsLoadingTweets(true);
-    setIsLoadingSummary(true);
-    setIsLoadingSentiment(true);
-    setErrorTweets(null);
-    setErrorSummary(null);
-    setErrorSentiment(null);
+  const loadData = useCallback(async (currentFilters: typeof filters) => {
+    setIsLoading(true);
+    setError(null);
+    console.log("Loading data with filters:", currentFilters); // Log filters
 
     try {
-      toast({ title: "Fetching Data...", description: `Loading insights for "${currentQuery}".` });
-      const fetchedTweets = await fetchTweets({ query: currentQuery, maxResults: 50 });
-      setTweets(fetchedTweets);
-      setActivityData(aggregateActivityData(fetchedTweets));
-      setErrorTweets(null);
-
-      if (fetchedTweets.length > 0) {
-        // Fetch summary
-        try {
-          const summaryOutput = await summarizeTrendingTopics({ query: currentQuery });
-          setTrendingSummary(summaryOutput.summary);
-          setErrorSummary(null);
-        } catch (e) {
-          console.error("Error fetching summary:", e);
-          setErrorSummary("Failed to generate trending summary.");
-          setTrendingSummary(null);
-          toast({ variant: "destructive", title: "Summary Error", description: "Could not generate trending topics summary." });
-        }
-
-        // Fetch sentiment
-        try {
-          const tweetTexts = fetchedTweets.map(t => t.text);
-          const sentimentOutput = await analyzeSentiment({ topic: currentQuery, tweets: tweetTexts });
-          setSentimentResult(sentimentOutput);
-          setErrorSentiment(null);
-        } catch (e) {
-          console.error("Error fetching sentiment:", e);
-          setErrorSentiment("Failed to perform sentiment analysis.");
-          setSentimentResult(null);
-          toast({ variant: "destructive", title: "Sentiment Error", description: "Could not perform sentiment analysis." });
-        }
-      } else {
-        setTrendingSummary(null);
-        setSentimentResult(null);
-        toast({ title: "No Data", description: `No tweets found for "${currentQuery}".` });
-      }
-
-    } catch (error) {
-      console.error("Error fetching tweets:", error);
-      setErrorTweets("Failed to fetch tweets. Please try again.");
-      setTweets([]);
-      setActivityData([]);
-      setTrendingSummary(null);
-      setSentimentResult(null);
-      toast({ variant: "destructive", title: "Data Fetch Error", description: "Could not load data. Please check console." });
+      toast({ title: "Fetching Data...", description: `Loading insights for ${currentFilters.keyword || 'all keywords'}.` });
+      const data = await fetchDashboardData(currentFilters);
+      console.log("Fetched data:", data); // Log fetched data
+      setDashboardData(data);
+    } catch (err) {
+      console.error("Error fetching dashboard data:", err);
+      setError("Failed to load dashboard data. Please try again.");
+      setDashboardData(null); // Clear data on error
+      toast({ variant: "destructive", title: "Data Fetch Error", description: err instanceof Error ? err.message : "Could not load data." });
     } finally {
-      setIsLoadingTweets(false);
-      setIsLoadingSummary(false);
-      setIsLoadingSentiment(false);
+      setIsLoading(false);
     }
   }, [toast]);
 
   useEffect(() => {
-    loadData(query);
-  }, [loadData, query]); // Query dependency will trigger reload on change
+    loadData(filters);
+  }, [loadData, filters]);
 
   const handleRefresh = () => {
-    loadData(query);
+    loadData(filters);
   };
 
-  const handleSearch = (newQuery: string) => {
-    setQuery(newQuery); // This will trigger useEffect to reload data
+  const handleSearch = (newFilters: { source: string; keyword: string; timeRange: string }) => {
+    setFilters(newFilters);
   };
 
-  const topPosts = tweets.sort((a, b) => (b.likes + b.retweets) - (a.likes + a.retweets)).slice(0, 5);
-  const overallLoading = isLoadingTweets || isLoadingSummary || isLoadingSentiment;
+  // Placeholder for collection modal trigger
+  const handleNewCollection = () => {
+    // In a real app, this would open a modal
+    toast({ title: "New Collection", description: "Functionality to start a new data collection process." });
+  };
+
+  // Placeholder for export action
+  const handleExport = () => {
+    // In a real app, this would trigger a download
+    toast({ title: "Export Data", description: "Functionality to export dashboard data." });
+  };
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
-      <DashboardHeader onRefresh={handleRefresh} isLoading={overallLoading} />
-      
+    <div className="min-h-screen p-4 md:p-8 bg-background text-foreground">
+      <DashboardHeader
+        onRefresh={handleRefresh}
+        onExport={handleExport}
+        onNewCollection={handleNewCollection}
+        isLoading={isLoading}
+      />
+
       <div className="mb-6">
-        <FiltersCard initialQuery={query} onSearch={handleSearch} isLoading={overallLoading} />
+        <FiltersCard
+          initialFilters={filters}
+          onSearch={handleSearch}
+          isLoading={isLoading}
+          // Pass top hashtags/keywords for the dropdown
+          keywords={dashboardData?.topTopics?.map(t => t.name) || []} 
+        />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="lg:col-span-1">
-          <TrendingSummaryCard summary={trendingSummary} isLoading={isLoadingSummary} error={errorSummary} />
+      {isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          {[...Array(4)].map((_, i) => <MetricCard key={i} isLoading={true} />)}
         </div>
-        <div className="lg:col-span-2">
-          <ActivityChartCard activityData={activityData} isLoading={isLoadingTweets} error={errorTweets} />
-        </div>
-      </div>
+        // Add more skeleton loaders for other sections if desired
+      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <SentimentAnalysisCard sentimentResult={sentimentResult} isLoading={isLoadingSentiment} error={errorSentiment}/>
+      {!isLoading && error && (
+        <div className="bg-destructive/10 border border-destructive text-destructive p-4 rounded-md mb-6">
+          <p>{error}</p>
         </div>
-        <div>
-          <TopPostsCard posts={topPosts} isLoading={isLoadingTweets} error={errorTweets} />
-        </div>
-      </div>
-      {/* Placeholder for word cloud or other visualizations */}
-      {/* <div className="mt-6">
-        <Card>
-          <CardHeader><CardTitle>Trending Terms (Word Cloud - Coming Soon)</CardTitle></CardHeader>
-          <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
-            Word cloud visualization will appear here.
-          </CardContent>
-        </Card>
-      </div> */}
+      )}
+
+      {!isLoading && !error && dashboardData && (
+        <>
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <MetricCard
+              title="Total Posts"
+              value={dashboardData.metrics.totalPosts?.toLocaleString() ?? '0'}
+              change={dashboardData.metrics.postsChange ?? 0}
+              icon={<MessageSquareText className="h-6 w-6 text-primary" />}
+              isLoading={isLoading}
+            />
+            <MetricCard
+              title="Engagement Rate"
+              value={`${dashboardData.metrics.engagementRate?.toFixed(1) ?? '0.0'}%`}
+              change={dashboardData.metrics.engagementChange ?? 0}
+              icon={<TrendingUp className="h-6 w-6 text-success-foreground" />} // Assuming success color for engagement
+              isLoading={isLoading}
+            />
+            <MetricCard
+              title="Avg. Sentiment" // Title adjusted
+              value={dashboardData.metrics.sentimentScore?.toFixed(1) ?? '0.0'}
+              change={dashboardData.metrics.sentimentChange ?? 0}
+              icon={<Smile className="h-6 w-6 text-yellow-500" />} // Assuming warning color for sentiment
+              isLoading={isLoading}
+            />
+             <MetricCard
+              title="Reach" // Title adjusted
+              value={dashboardData.metrics.reach?.toLocaleString() ?? '0'}
+              change={dashboardData.metrics.reachChange ?? 0}
+              icon={<Users className="h-6 w-6 text-info-foreground" />} // Assuming info color for reach
+              isLoading={isLoading}
+            />
+          </div>
+
+          {/* Main Dashboard Charts Row 1 */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div className="lg:col-span-2">
+              <ActivityChartCard
+                activityData={dashboardData.activityData?.daily || []} // Adjust based on selected view
+                isLoading={isLoading}
+                // Add daily/weekly/monthly data props if API provides them separately
+              />
+            </div>
+            <div className="lg:col-span-1">
+              <SentimentAnalysisCard
+                sentimentResult={dashboardData.sentimentDistribution}
+                isLoading={isLoading}
+              />
+            </div>
+          </div>
+
+          {/* Word Cloud and Top Topics Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div>
+              <WordCloudCard wordCloudData={dashboardData.wordCloudData || []} isLoading={isLoading} />
+            </div>
+            <div>
+              <TopHashtagsCard hashtags={dashboardData.topTopics || []} isLoading={isLoading} />
+            </div>
+          </div>
+
+          {/* Platform Distribution and Engagement Metrics Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+             <div className="lg:col-span-1">
+               <PlatformDistributionCard platformData={dashboardData.platformDistribution} isLoading={isLoading} />
+             </div>
+             <div className="lg:col-span-2">
+               <EngagementMetricsCard engagementData={dashboardData.engagementMetrics} isLoading={isLoading} />
+             </div>
+          </div>
+
+          {/* Recent Posts Table */}
+          <div>
+            <RecentPostsTable posts={dashboardData.recentPosts || []} isLoading={isLoading} />
+          </div>
+        </>
+      )}
     </div>
   );
 }

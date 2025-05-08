@@ -30,27 +30,7 @@ export interface Keyword {
     frequency?: number;
 }
 
-/**
- * Represents a Topic derived from keyword clustering or other analysis.
- */
-export interface Topic {
-    /**
-     * The unique identifier of the topic.
-     */
-    id: string;
-    /**
-     * The name of the topic.
-     */
-    name: string;
-    /**
-     * A description of the topic (optional).
-     */
-    description?: string;
-    /**
-     * Timestamp of when the topic was created/identified.
-     */
-    createdAt?: string;
-}
+// Removed Topic interface as it's not used directly in this file's functions
 
 /**
  * Represents a social media post, analogous to the Python Post model.
@@ -224,13 +204,13 @@ export async function fetchTweets(options: FetchTweetsOptions): Promise<Tweet[]>
             keywords: [{ text: 'learning', frequency: 1 }, { text: 'applications', frequency: 1 }, { text: 'mind-blowing', frequency: 1 }],
         }
     ];
-    
+
     const maxResults = options.maxResults || 10;
     // Filter mock data if query is generic or very specific, for demonstration
     let filteredTweets = sampleTweets;
     if (options.query.toLowerCase() !== 'ai trends' && options.query.toLowerCase() !== 'ai') {
          filteredTweets = sampleTweets.filter(tweet => tweet.text.toLowerCase().includes(options.query.toLowerCase()));
     }
-    
+
     return filteredTweets.slice(0, maxResults);
 }

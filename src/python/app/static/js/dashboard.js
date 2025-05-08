@@ -599,20 +599,20 @@ async function loadDashboardData(dateRange = 'week', customDates = null) {
         document.querySelectorAll('.loading-spinner').forEach(spinner => {
             spinner.style.display = 'block';
         });
-        
+
         // Build API URL with parameters
         let apiUrl = `/api/analytics?range=${dateRange}`;
-        
+
         // Add custom date range parameters if provided
         if (dateRange === 'custom' && customDates) {
             apiUrl += `&startDate=${customDates.startDate.toISOString()}&endDate=${customDates.endDate.toISOString()}`;
         }
-        
+
         // Check if we have network connectivity
         if (!navigator.onLine) {
             throw new Error('No internet connection. Please check your network and try again.');
         }
-        
+
         // Show loading indicators with loading text
         document.querySelectorAll('.chart-container').forEach(container => {
             const loadingText = container.querySelector('.loading-text');
@@ -620,71 +620,77 @@ async function loadDashboardData(dateRange = 'week', customDates = null) {
                 loadingText.style.display = 'block';
             }
         });
-        
+
         // Fetch data from API with timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-        
+
         try {
-            const response = await fetch(apiUrl, { 
+            const response = await fetch(apiUrl, {
                 signal: controller.signal,
                 headers: {
                     'Cache-Control': 'no-cache'
                 }
             });
-            
+
             clearTimeout(timeoutId);
-            
+
             if (!response.ok) {
                 throw new Error(`Error fetching data: ${response.status} ${response.statusText}`);
             }
-            
+
             const data = await response.json();
-            
+
             // Store data globally for other functions to access
             window.dashboardData = data;
-        
+
             // For demo or development, use mock data if API returns empty data
             if (!data || Object.keys(data).length === 0) {
                 console.warn('API returned empty data, using mock data instead');
                 window.dashboardData = generateMockData();
                 showNotification('Using sample data for demonstration purposes', 'info');
             }
-        
-        // Update dashboard with fetched data
-        updateDashboard(window.dashboardData, dateRange);
-        
-        // Hide loading indicators
-        document.querySelectorAll('.loading-spinner').forEach(spinner => {
-            spinner.style.display = 'none';
-        });
-        
-        document.querySelectorAll('.chart-container .loading-text').forEach(text => {
-            text.style.display = 'none';
-        });
-        
-        // Update last refreshed timestamp
-        const lastRefreshed = document.getElementById('lastRefreshed');
-        if (lastRefreshed) {
-            const now = new Date();
-            lastRefreshed.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            lastRefreshed.setAttribute('data-timestamp', now.getTime());
-        }
-        
-        // Trigger event for any custom extensions that might be listening
-        const dashboardUpdatedEvent = new CustomEvent('dashboardUpdated', {
-            detail: {
-                dateRange: dateRange,
-                customDates: customDates,
-                timestamp: new Date().getTime()
+
+            // Update dashboard with fetched data
+            updateDashboard(window.dashboardData, dateRange);
+
+            // Hide loading indicators
+            document.querySelectorAll('.loading-spinner').forEach(spinner => {
+                spinner.style.display = 'none';
+            });
+
+            document.querySelectorAll('.chart-container .loading-text').forEach(text => {
+                text.style.display = 'none';
+            });
+
+            // Update last refreshed timestamp
+            const lastRefreshed = document.getElementById('lastRefreshed');
+            if (lastRefreshed) {
+                const now = new Date();
+                lastRefreshed.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                lastRefreshed.setAttribute('data-timestamp', now.getTime());
             }
-        });
-        document.dispatchEvent(dashboardUpdatedEvent);
-        
-        return true;
+
+            // Trigger event for any custom extensions that might be listening
+            const dashboardUpdatedEvent = new CustomEvent('dashboardUpdated', {
+                detail: {
+                    dateRange: dateRange,
+                    customDates: customDates,
+                    timestamp: new Date().getTime()
+                }
+            });
+            document.dispatchEvent(dashboardUpdatedEvent);
+
+            return true;
+        } catch (fetchError) { // Added catch block for the inner try
+            console.error('Failed to fetch dashboard data:', fetchError);
+            // You can handle the fetch error specifically here,
+            // or let it propagate to the outer catch block
+            throw fetchError; // Re-throw the error to be caught by the outer catch
+        }
     } catch (error) {
         console.error('Failed to load dashboard data:', error);
-        
+
         // Show error message
         document.getElementById('dashboardError').innerHTML = `
             <div class="alert alert-danger">
@@ -693,15 +699,16 @@ async function loadDashboardData(dateRange = 'week', customDates = null) {
                 <button type="button" class="btn-close float-end" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         `;
-        
+
         // Hide loading indicators
         document.querySelectorAll('.loading-spinner').forEach(spinner => {
             spinner.style.display = 'none';
         });
-        
+
         return false;
     }
 }
+
 
 // Handle date range selection
 function handleDateRangeChange(event) {
@@ -1299,7 +1306,7 @@ function generateMockData() {
             {
                 platform: 'LinkedIn',
                 date: new Date(today - (Math.floor(Math.random() * 5) * 86400000)),
-                content: 'We're hiring! Join our innovative team and help shape the future of our industry. Apply now through our careers page.',
+                content: "We're hiring! Join our innovative team and help shape the future of our industry. Apply now through our careers page.",
                 likes: Math.floor(Math.random() * 150) + 50,
                 comments: Math.floor(Math.random() * 20) + 5,
                 shares: Math.floor(Math.random() * 30) + 10,
@@ -1308,7 +1315,7 @@ function generateMockData() {
             {
                 platform: 'TikTok',
                 date: new Date(today - (Math.floor(Math.random() * 5) * 86400000)),
-                content: 'Quick tip from our experts: Here's how you can maximize your productivity using our tools! #ProductivityTips',
+                content: "Quick tip from our experts: Here's how you can maximize your productivity using our tools! #ProductivityTips'",
                 likes: Math.floor(Math.random() * 500) + 200,
                 comments: Math.floor(Math.random() * 100) + 30,
                 shares: Math.floor(Math.random() * 200) + 50,
