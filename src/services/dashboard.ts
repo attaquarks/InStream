@@ -17,7 +17,7 @@ export interface DashboardData {
     engagementChange: number;
     sentimentScore: number; // Assuming 0-10 scale from API
     sentimentChange: number;
-    reach: number; 
+    reach: number;
     reachChange: number;
   };
   activityData: { // Contains data potentially structured by interval
@@ -48,9 +48,9 @@ interface FetchDashboardOptions {
   timeRange?: string; // e.g., '1', '7', '30', '90'
 }
 
-// Base URL for the Flask API 
+// Base URL for the Flask API
 // Remove trailing /api, as it's included in the specific endpoint fetch below
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'; 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 /**
  * Fetches consolidated dashboard data from the Flask backend.
@@ -72,66 +72,66 @@ export async function fetchDashboardData(options: FetchDashboardOptions = {}): P
   console.log(`Fetching dashboard data from: ${url}`); // Log the URL being fetched
 
   try {
-    
-     const response = await fetch(url);
+    const response = await fetch(url); // The failing line
 
-     if (!response.ok) {
-       // Attempt to read error message from response body
-       let errorBody = 'Failed to fetch dashboard data';
+    // Check if the response status indicates a client or server error
+    if (!response.ok) {
+       let errorBody = `HTTP error! status: ${response.status} - ${response.statusText}`;
        try {
+          // Attempt to read detailed error message from JSON response
           const errorData = await response.json();
-          errorBody = errorData.message || `HTTP error! status: ${response.status}`;
+          errorBody = errorData.message || JSON.stringify(errorData) || errorBody; // Use detailed message if available
        } catch (e) {
-          // Ignore JSON parsing error, use status text
+          // If JSON parsing fails, use the status text
           console.error("Could not parse error response JSON:", e);
-          errorBody = `HTTP error! status: ${response.status} - ${response.statusText}`;
        }
-       console.error("API Error Response:", errorBody);
-       throw new Error(errorBody);
-     }
+       console.error(`API Error Response for ${url}: ${errorBody}`);
+       throw new Error(`Failed to fetch dashboard data: ${errorBody}`); // Throw more specific error
+    }
 
-     const data: DashboardData = await response.json();
+    // If response is OK, proceed to parse JSON
+    const data: DashboardData = await response.json();
 
-     // --- Data Transformation/Structuring ---
-     if (data.activityData && data.activityData.labels && data.activityData.datasets) {
-        const dailyActivity: ActivityDataPoint[] = data.activityData.labels.map((label, index) => {
-            const point: ActivityDataPoint = { date: label };
-            data.activityData!.datasets.forEach(dataset => {
-                 // Ensure the key is lowercase and valid for object property access
-                 const platformKey = dataset.label.toLowerCase().replace(/[^a-z0-9]/gi, ''); // Basic sanitization
-                 if (platformKey) {
-                    point[platformKey] = dataset.data[index] ?? 0; 
-                 }
-             });
-            return point;
-        });
-        data.activityData.daily = dailyActivity;
-     } else {
-        console.warn("Activity data received from API is missing labels or datasets.");
-        // Ensure activityData is at least null or an empty structure if expected by components
-        data.activityData = data.activityData || { labels: [], datasets: [], daily: [] }; 
-     }
-     
-      // Ensure other potentially null fields are handled gracefully
-     data.sentimentDistribution = data.sentimentDistribution || { positive: 0, neutral: 0, negative: 0 };
-     data.wordCloudData = data.wordCloudData || [];
-     data.topTopics = data.topTopics || [];
-     data.platformDistribution = data.platformDistribution || { labels: [], data: [] };
-     data.engagementMetrics = data.engagementMetrics || { labels: [], datasets: [] };
-     data.recentPosts = data.recentPosts || [];
+    // --- Data Transformation/Structuring ---
+    if (data.activityData && data.activityData.labels && data.activityData.datasets) {
+       const dailyActivity: ActivityDataPoint[] = data.activityData.labels.map((label, index) => {
+           const point: ActivityDataPoint = { date: label };
+           data.activityData!.datasets.forEach(dataset => {
+                // Ensure the key is lowercase and valid for object property access
+                const platformKey = dataset.label.toLowerCase().replace(/[^a-z0-9]/gi, ''); // Basic sanitization
+                if (platformKey) {
+                   point[platformKey] = dataset.data[index] ?? 0;
+                }
+            });
+           return point;
+       });
+       data.activityData.daily = dailyActivity;
+    } else {
+       console.warn("Activity data received from API is missing labels or datasets.");
+       // Ensure activityData is at least null or an empty structure if expected by components
+       data.activityData = data.activityData || { labels: [], datasets: [], daily: [] };
+    }
 
+     // Ensure other potentially null fields are handled gracefully
+    data.sentimentDistribution = data.sentimentDistribution || { positive: 0, neutral: 0, negative: 0 };
+    data.wordCloudData = data.wordCloudData || [];
+    data.topTopics = data.topTopics || [];
+    data.platformDistribution = data.platformDistribution || { labels: [], data: [] };
+    data.engagementMetrics = data.engagementMetrics || { labels: [], datasets: [] };
+    data.recentPosts = data.recentPosts || [];
 
     return data;
 
   } catch (error) {
-    console.error('Error fetching dashboard data:', error);
-    // Re-throw the error to be handled by the calling component
-    // Ensure it's an actual Error object
-    if (error instanceof Error) {
-        throw error;
+    // Log the specific type of error if possible
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        console.error(`'Failed to fetch' error for URL: ${url}. Possible causes: Server not running, Network issue, CORS problem, or incorrect API URL (${API_BASE_URL}).`);
+         throw new Error(`Failed to load dashboard data. Could not connect to the backend server at ${API_BASE_URL}. Please ensure it's running and accessible.`);
     } else {
-        throw new Error(String(error) || "An unknown error occurred during fetch.");
+        console.error(`Error fetching dashboard data from ${url}:`, error);
     }
+
+    // Re-throw a consistent error message
+    throw new Error(`Failed to load dashboard data. ${error instanceof Error ? error.message : 'An unknown error occurred. Please check the browser console and ensure the backend server is running.'}`);
   }
 }
-
