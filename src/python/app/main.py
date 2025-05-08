@@ -31,41 +31,49 @@ def allowed_file(filename):
 
 def create_app():
     """Create and configure the Flask application."""
-    app = Flask(__name__, 
+    app = Flask(__name__,
                 static_folder='../static', # Adjusted static folder path relative to main.py
                 template_folder='../templates') # Adjusted template folder path
-    
-    # Enable CORS
-    CORS(app) # Allows all origins by default, refine in production if needed
-    
+
     # Load configuration
-    current_config = get_config() 
+    current_config = get_config()
     app.config.from_object(current_config)
     app.config['UPLOAD_FOLDER'] = os.path.join(app.instance_path, UPLOAD_FOLDER) # Store uploads in instance folder
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True) # Create upload folder if it doesn't exist
-    
+
+    # Enable CORS - Explicitly allow the Next.js dev server origin
+    # In production, restrict this to the actual frontend domain
+    CORS(app, resources={r"/api/*": {"origins": ["http://localhost:9002", "http://127.0.0.1:9002"]}}) # Allows requests from Next.js dev server
+
     # Initialize database
     with app.app_context():
         init_db()
-    
+
     # Register routes
     register_routes(app)
 
     @app.context_processor
     def inject_now():
         return {'now': datetime.utcnow}
-    
+
     # Initialize scheduler for production or if not explicitly disabled
     if not app.config.get('TESTING', False) and os.environ.get('FLASK_ENV') != 'development_no_scheduler':
+        # Avoid starting scheduler twice when Flask reloader is active
         if not os.environ.get("WERKZEUG_RUN_MAIN"):
+           logger.info("Initializing scheduler...")
            init_scheduler()
-    
+        else:
+           logger.info("Scheduler initialization skipped in Werkzeug reloader process.")
+    else:
+        logger.info("Scheduler initialization skipped (TESTING or development_no_scheduler environment).")
+
+
     return app
 
 
 def register_routes(app):
     """Register application routes."""
-    
+
     # Route for serving static images (if needed, otherwise let Flask handle /static)
     # @app.route('/static/images/<path:filename>')
     # def serve_image(filename):
@@ -75,7 +83,7 @@ def register_routes(app):
     def index():
         """Render main home page."""
         return render_template('index.html')
-    
+
     @app.route('/dashboard')
     def dashboard():
         """Render dashboard page with filters."""
@@ -92,60 +100,60 @@ def register_routes(app):
         """Render settings page."""
         # Placeholder for settings page
         return render_template('index.html', title="Settings (Coming Soon)") # Or a dedicated settings.html
-    
+
     @app.route('/api/summary')
     def get_summary():
         """Get dashboard summary statistics."""
         days = request.args.get('days', default=1, type=int)
         return jsonify(analyzer.get_dashboard_summary(days))
-    
+
     @app.route('/api/trending')
     def get_trending():
         """Get trending topics."""
         days = request.args.get('days', default=1, type=int)
         limit = request.args.get('limit', default=10, type=int)
         return jsonify(analyzer.get_trending_topics(days, limit))
-    
+
     @app.route('/api/posts/top')
-    def get_top_posts_route(): 
+    def get_top_posts_route():
         """Get top posts by specified metric."""
         days = request.args.get('days', default=1, type=int)
         metric = request.args.get('metric', default='engagement')
         limit = request.args.get('limit', default=10, type=int)
         return jsonify(analyzer.get_top_posts(days, metric, limit))
-    
+
     @app.route('/api/activity')
     def get_activity():
         """Get post activity time series."""
         days = request.args.get('days', default=7, type=int)
         interval = request.args.get('interval', default='day')
         return jsonify(analyzer.get_time_series_activity(days, interval))
-    
+
     @app.route('/api/engagement')
     def get_engagement():
         """Get engagement metrics time series."""
         days = request.args.get('days', default=7, type=int)
         platform = request.args.get('platform', default=None)
         return jsonify(analyzer.get_time_series_engagement(days, platform))
-    
+
     @app.route('/api/sentiment')
-    def get_sentiment_distribution_route(): 
+    def get_sentiment_distribution_route():
         """Get sentiment distribution."""
         days = request.args.get('days', default=7, type=int)
         platform = request.args.get('platform', default=None)
         return jsonify(processor.get_sentiment_distribution(days, platform))
-    
+
     @app.route('/api/hashtag-network')
-    def get_hashtag_network_route(): 
+    def get_hashtag_network_route():
         """Get hashtag co-occurrence network."""
         days = request.args.get('days', default=7, type=int)
         limit = request.args.get('limit', default=20, type=int)
         return jsonify(analyzer.get_hashtag_network(days, limit))
-    
+
     @app.route('/api/search')
-    def search_posts_route(): 
+    def search_posts_route():
         """Search posts by content."""
-        query_param = request.args.get('q', default='') 
+        query_param = request.args.get('q', default='')
         days = request.args.get('days', default=30, type=int)
         limit = request.args.get('limit', default=50, type=int)
         return jsonify(analyzer.search_posts(query_param, days, limit))
@@ -192,19 +200,19 @@ def register_routes(app):
             "reach": summary.get('total_posts', 0) * 10, # Placeholder
             "reachChange": 3, # Placeholder
         }
-        
+
         activity_data_raw = analyzer.get_time_series_activity(days=time_range_days, interval='day') # Assume daily for now
-        
+
         # Aggregate activity data if source is 'all' or transform for specific source
         activity_labels = sorted(list(set(item['date'] for item in activity_data_raw)))
         activity_datasets = []
-        
+
         platforms_in_data = set()
         for item in activity_data_raw:
             for key in item:
                 if key != 'date':
                     platforms_in_data.add(key)
-        
+
         platform_colors = { # Define some colors for platforms
             'twitter': 'rgba(29, 161, 242, 1)',
             'facebook': 'rgba(59, 89, 152, 1)',
@@ -246,7 +254,7 @@ def register_routes(app):
         }
 
         sentimentDistribution = processor.get_sentiment_distribution(days=time_range_days, platform=source if source != 'all' else None)
-        
+
         trending_keywords_raw = processor.get_trending_keywords(days=time_range_days, limit=50) # Fetch more for word cloud
         wordCloudData = [{"text": kw['text'], "value": kw['frequency']} for kw in trending_keywords_raw]
 
@@ -260,7 +268,7 @@ def register_routes(app):
             'labels': list(platform_dist_raw.keys()),
             'data': list(platform_dist_raw.values())
         }
-        
+
         engagement_metrics_raw = analyzer.get_time_series_engagement(days=time_range_days, platform=source if source != 'all' else None)
         engagementMetrics = { # Assuming daily for now
             'labels': [em['date'] for em in engagement_metrics_raw],
@@ -269,7 +277,7 @@ def register_routes(app):
                 {'label': 'Avg Shares', 'data': [em['avg_shares'] for em in engagement_metrics_raw], 'borderColor': 'rgba(54, 162, 235, 1)', 'tension': 0.1, 'fill': False},
             ]
         }
-        
+
         # Fetch recent posts, apply keyword filter if present
         if keyword_filter: # Check if keyword_filter is not empty
             logger.info(f"Searching posts with keyword: {keyword_filter}")
@@ -285,30 +293,33 @@ def register_routes(app):
                 # Determine sentiment string
                 score = p.get('sentiment_score', 0)
                 sentiment_str = "Positive" if score > 0.05 else "Negative" if score < -0.05 else "Neutral"
-                
+
                 # Ensure created_at is valid before formatting
                 created_at_str = p.get('created_at')
                 formatted_date = ""
                 if created_at_str:
                      try:
-                        formatted_date = datetime.fromisoformat(created_at_str.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M')
+                        # Handle potential 'Z' for UTC timezone
+                        dt_obj = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                        # Convert to local time if needed or format directly
+                        formatted_date = dt_obj.strftime('%Y-%m-%d %H:%M')
                      except ValueError:
                          logger.warning(f"Could not parse date: {created_at_str}")
                          formatted_date = created_at_str # Keep original if parsing fails
 
                 recentPosts.append({
-                    "platform": p.get('platform', 'Unknown'), 
-                    "author": p.get('author', 'N/A'), 
+                    "platform": p.get('platform', 'Unknown'),
+                    "author": p.get('author', 'N/A'),
                     "content": (p.get('content') or '')[:100] + ("..." if len(p.get('content') or '') > 100 else ""), # Truncate safely
                     "sentiment": sentiment_str,
                     "sentimentScore": score,
-                    "likes": p.get('likes', 0), 
+                    "likes": p.get('likes', 0),
                     "shares": p.get('shares', 0),
                     "date": formatted_date
                 })
              except Exception as e_inner:
                 logger.error(f"Error processing recent post: {p.get('id', 'N/A')}. Error: {e_inner}", exc_info=True)
-        
+
 
         response_data = {
             "metrics": metrics,
@@ -329,13 +340,13 @@ def register_routes(app):
         source = request.form.get('source', 'twitter')
         keywords_str = request.form.get('keywords', '')
         keywords = [k.strip() for k in keywords_str.split(',') if k.strip()] if keywords_str else get_config().DEFAULT_KEYWORDS
-        
+
         limit_str = request.form.get('limit', str(get_config().POST_LIMIT))
         try:
             limit = int(limit_str)
         except ValueError:
             limit = get_config().POST_LIMIT
-        
+
         # dateRange = request.form.get('dateRange')
         # startDate = request.form.get('startDate') # Handle if 'custom'
         # endDate = request.form.get('endDate') # Handle if 'custom'
@@ -357,7 +368,7 @@ def register_routes(app):
                 return jsonify({'status': 'success', 'message': f'CSV file {filename} uploaded. Processing to be implemented.'})
             else:
                 return jsonify({'status': 'error', 'message': 'File type not allowed for CSV upload'}), 400
-        
+
         try:
             count = collect_and_save_data(source, keywords, limit)
             # After successful collection, trigger processing
@@ -367,15 +378,15 @@ def register_routes(app):
         except Exception as e:
             logger.error(f"Error in /api/collect-data: {e}", exc_info=True)
             return jsonify({'status': 'error', 'message': str(e)}), 500
-    
+
     @app.route('/api/process', methods=['POST'])
-    def process_data_route(): 
+    def process_data_route():
         """Manually trigger data processing for all unprocessed data."""
         try:
             keyword_count = processor.extract_keywords() # Process all unprocessed
             sentiment_count = processor.analyze_sentiment() # Process all unprocessed
             return jsonify({
-                'status': 'success', 
+                'status': 'success',
                 'keywords_processed': keyword_count,
                 'sentiment_processed': sentiment_count
             })
@@ -388,8 +399,12 @@ def register_routes(app):
 app = create_app()
 
 if __name__ == '__main__':
-    app.run(debug=app.config.get('DEBUG', True), 
-            host=os.environ.get('FLASK_RUN_HOST', '0.0.0.0'), 
-            port=int(os.environ.get('FLASK_RUN_PORT', 5000)))
+    # Use environment variables for host and port, falling back to defaults
+    host = os.environ.get('FLASK_RUN_HOST', '0.0.0.0')
+    port = int(os.environ.get('FLASK_RUN_PORT', 5000))
+    debug_mode = app.config.get('DEBUG', True)
 
-    
+    logger.info(f"Starting Flask server on {host}:{port} with debug={debug_mode}")
+    # Run the app using Flask's development server
+    app.run(debug=debug_mode, host=host, port=port)
+```

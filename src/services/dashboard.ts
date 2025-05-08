@@ -48,9 +48,12 @@ interface FetchDashboardOptions {
   timeRange?: string; // e.g., '1', '7', '30', '90'
 }
 
-// Base URL for the Flask API
-// Remove trailing /api, as it's included in the specific endpoint fetch below
+// Ensure NEXT_PUBLIC_API_URL is defined and accessible
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+if (!process.env.NEXT_PUBLIC_API_URL) {
+  console.warn('NEXT_PUBLIC_API_URL environment variable not set. Defaulting to http://localhost:5000');
+}
+console.log(`Using API Base URL: ${API_BASE_URL}`); // Log the determined base URL
 
 /**
  * Fetches consolidated dashboard data from the Flask backend.
@@ -68,26 +71,34 @@ export async function fetchDashboardData(options: FetchDashboardOptions = {}): P
     timeRange,
   });
 
-  const url = `${API_BASE_URL}/api/dashboard-data?${params.toString()}`;
-  console.log(`Fetching dashboard data from: ${url}`); // Log the URL being fetched
+  // Validate URL construction
+  let url: string;
+  try {
+    url = new URL(`/api/dashboard-data?${params.toString()}`, API_BASE_URL).toString();
+    console.log(`Fetching dashboard data from: ${url}`); // Log the URL being fetched
+  } catch (e) {
+    console.error("Error constructing API URL:", e);
+    throw new Error(`Invalid API URL constructed: ${API_BASE_URL}. Please check the NEXT_PUBLIC_API_URL environment variable.`);
+  }
+
 
   try {
-    const response = await fetch(url); // The failing line
 
-    // Check if the response status indicates a client or server error
-    if (!response.ok) {
+     const response = await fetch(url);
+
+     if (!response.ok) {
+       // Attempt to read error message from response body
        let errorBody = `HTTP error! status: ${response.status} - ${response.statusText}`;
        try {
-          // Attempt to read detailed error message from JSON response
-          const errorData = await response.json();
-          errorBody = errorData.message || JSON.stringify(errorData) || errorBody; // Use detailed message if available
+         const errorData = await response.json();
+         errorBody = errorData.message || JSON.stringify(errorData) || errorBody; // Use detailed message if available
        } catch (e) {
-          // If JSON parsing fails, use the status text
-          console.error("Could not parse error response JSON:", e);
+         // If JSON parsing fails, just use the status text
+         console.warn("Could not parse error response JSON:", e);
        }
        console.error(`API Error Response for ${url}: ${errorBody}`);
-       throw new Error(`Failed to fetch dashboard data: ${errorBody}`); // Throw more specific error
-    }
+       throw new Error(`Failed to fetch dashboard data: ${errorBody}`);
+     }
 
     // If response is OK, proceed to parse JSON
     const data: DashboardData = await response.json();
@@ -124,7 +135,7 @@ export async function fetchDashboardData(options: FetchDashboardOptions = {}): P
 
   } catch (error) {
     // Log the specific type of error if possible
-    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
         console.error(`'Failed to fetch' error for URL: ${url}. Possible causes: Server not running, Network issue, CORS problem, or incorrect API URL (${API_BASE_URL}).`);
          throw new Error(`Failed to load dashboard data. Could not connect to the backend server at ${API_BASE_URL}. Please ensure it's running and accessible.`);
     } else {
