@@ -3,6 +3,7 @@ from flask import Flask, render_template, jsonify, request # Removed send_from_d
 import os
 # import json # Not used
 from datetime import datetime
+from flask_cors import CORS # Import CORS
 
 from app.config import get_config
 from database.db import init_db
@@ -31,8 +32,11 @@ def allowed_file(filename):
 def create_app():
     """Create and configure the Flask application."""
     app = Flask(__name__, 
-                static_folder='static', 
-                template_folder='templates')
+                static_folder='../static', # Adjusted static folder path relative to main.py
+                template_folder='../templates') # Adjusted template folder path
+    
+    # Enable CORS
+    CORS(app) # Allows all origins by default, refine in production if needed
     
     # Load configuration
     current_config = get_config() 
@@ -62,6 +66,11 @@ def create_app():
 def register_routes(app):
     """Register application routes."""
     
+    # Route for serving static images (if needed, otherwise let Flask handle /static)
+    # @app.route('/static/images/<path:filename>')
+    # def serve_image(filename):
+    #     return send_from_directory(os.path.join(app.static_folder, 'images'), filename)
+
     @app.route('/')
     def index():
         """Render main home page."""
@@ -147,9 +156,15 @@ def register_routes(app):
         # For example, count total posts, average sentiment from your DB.
         # Number of data sources could be hardcoded or from config.
         # Trend data needs to be generated/queried based on historical data.
+        summary_30d = analyzer.get_dashboard_summary(days=30)
+        summary_365d = analyzer.get_dashboard_summary(days=365)
+        total_posts_30d = summary_30d.get('total_posts', 0)
+        sentiment_30d = summary_30d.get('sentiment', {})
+        avg_sentiment_score = (sentiment_30d.get('positive',0) - sentiment_30d.get('negative',0)) / (total_posts_30d or 1) * 5 + 5 if total_posts_30d > 0 else 5.0
+
         return jsonify({
-            "postsAnalyzed": analyzer.get_dashboard_summary(days=365).get('total_posts',0), # Example: total posts ever
-            "avgSentiment": (analyzer.get_dashboard_summary(days=30).get('sentiment', {}).get('positive',0) - analyzer.get_dashboard_summary(days=30).get('sentiment', {}).get('negative',0)) / (analyzer.get_dashboard_summary(days=30).get('total_posts',1) or 1) * 5 + 5 if analyzer.get_dashboard_summary(days=30).get('total_posts',0) > 0 else 5.0, # Scaled to 0-10
+            "postsAnalyzed": summary_365d.get('total_posts',0), # Example: total posts ever
+            "avgSentiment": avg_sentiment_score, # Scaled to 0-10
             "trendingTopics": len(analyzer.get_trending_topics(days=7).get('keywords', [])),
             "dataSources": len(get_config().DEFAULT_KEYWORDS) > 0, # Example: count active data sources
             "trendLabels": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"], # Placeholder
@@ -160,22 +175,25 @@ def register_routes(app):
     @app.route('/api/dashboard-data')
     def dashboard_data_api():
         source = request.args.get('source', 'all')
-        keyword_filter = request.args.get('keyword', 'all') # Changed from 'keyword' to 'keyword_filter'
+        keyword_filter = request.args.get('keyword', '') # Empty string default instead of 'all'
         time_range_days = int(request.args.get('timeRange', 7))
+
+        logger.info(f"Received dashboard data request: source='{source}', keyword='{keyword_filter}', timeRange='{time_range_days}'")
 
         # Placeholder data - replace with actual data fetching and processing logic
         summary = analyzer.get_dashboard_summary(days=time_range_days)
         metrics = {
             "totalPosts": summary.get('total_posts', 0),
             "postsChange": 5, # Placeholder
-            "engagementRate": (summary.get('engagement',{}).get('total_likes',0) + summary.get('engagement',{}).get('total_shares',0)) / (summary.get('total_posts',1) or 1),
+            "engagementRate": ((summary.get('engagement',{}).get('total_likes',0) or 0) + (summary.get('engagement',{}).get('total_shares',0) or 0)) / (summary.get('total_posts',1) or 1) * 100, # Calculate as percentage
             "engagementChange": 2, # Placeholder
-            "sentimentScore": (summary.get('sentiment', {}).get('positive',0) - summary.get('sentiment', {}).get('negative',0)) / (summary.get('total_posts',1) or 1) * 5 + 5 if summary.get('total_posts',0) > 0 else 5.0, # Example calculation
+            "sentimentScore": (summary.get('sentiment', {}).get('positive',0) - summary.get('sentiment', {}).get('negative',0)) / (summary.get('total_posts',1) or 1) * 5 + 5 if summary.get('total_posts',0) > 0 else 5.0, # Example calculation (0-10 scale)
             "sentimentChange": 1, # Placeholder
             "reach": summary.get('total_posts', 0) * 10, # Placeholder
             "reachChange": 3, # Placeholder
         }
-        activity_data_raw = analyzer.get_time_series_activity(days=time_range_days)
+        
+        activity_data_raw = analyzer.get_time_series_activity(days=time_range_days, interval='day') # Assume daily for now
         
         # Aggregate activity data if source is 'all' or transform for specific source
         activity_labels = sorted(list(set(item['date'] for item in activity_data_raw)))
@@ -234,7 +252,7 @@ def register_routes(app):
 
 
         trending_hashtags_raw = processor.get_trending_hashtags(days=time_range_days, limit=10)
-        topTopics = [{"name": ht['text'], "posts": ht['count'], "engagement": ht['count']*5, "sentiment": 0.6, "trend": "up"} for ht in trending_hashtags_raw] # Placeholder for engagement/sentiment
+        topTopics = [{"name": ht['text'], "posts": ht['count'], "engagement": ht['count']*5, "sentiment": 6.5 + (hash(ht['text']) % 30)/10.0 , "trend": "up" if hash(ht['text']) % 2 == 0 else "down"} for ht in trending_hashtags_raw] # Placeholder for engagement/sentiment
 
 
         platform_dist_raw = summary.get('platforms', {})
@@ -253,21 +271,46 @@ def register_routes(app):
         }
         
         # Fetch recent posts, apply keyword filter if present
-        if keyword_filter and keyword_filter != 'all':
-            recent_posts_raw = analyzer.search_posts(query_string=keyword_filter, days=time_range_days, limit=10)
+        if keyword_filter: # Check if keyword_filter is not empty
+            logger.info(f"Searching posts with keyword: {keyword_filter}")
+            recent_posts_raw = analyzer.search_posts(query_string=keyword_filter, days=time_range_days, limit=50) # Increased limit for filtering
         else:
-             recent_posts_raw = analyzer.get_top_posts(days=time_range_days, limit=10, metric='created_at_desc') # Assuming a metric for recency
+             logger.info("Fetching recent posts (no keyword filter)")
+             # Get latest posts regardless of keyword
+             recent_posts_raw = analyzer.get_top_posts(days=time_range_days, limit=50, metric='created_at_desc') # Assuming a metric for recency exists or implemented
+
+        recentPosts = []
+        for p in recent_posts_raw:
+             try:
+                # Determine sentiment string
+                score = p.get('sentiment_score', 0)
+                sentiment_str = "Positive" if score > 0.05 else "Negative" if score < -0.05 else "Neutral"
+                
+                # Ensure created_at is valid before formatting
+                created_at_str = p.get('created_at')
+                formatted_date = ""
+                if created_at_str:
+                     try:
+                        formatted_date = datetime.fromisoformat(created_at_str.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M')
+                     except ValueError:
+                         logger.warning(f"Could not parse date: {created_at_str}")
+                         formatted_date = created_at_str # Keep original if parsing fails
+
+                recentPosts.append({
+                    "platform": p.get('platform', 'Unknown'), 
+                    "author": p.get('author', 'N/A'), 
+                    "content": (p.get('content') or '')[:100] + ("..." if len(p.get('content') or '') > 100 else ""), # Truncate safely
+                    "sentiment": sentiment_str,
+                    "sentimentScore": score,
+                    "likes": p.get('likes', 0), 
+                    "shares": p.get('shares', 0),
+                    "date": formatted_date
+                })
+             except Exception as e_inner:
+                logger.error(f"Error processing recent post: {p.get('id', 'N/A')}. Error: {e_inner}", exc_info=True)
         
-        recentPosts = [{
-            "platform": p.get('platform'), "author": p.get('author'), "content": p.get('content')[:100] + "...", # Truncate
-            "sentiment": "Positive" if p.get('sentiment_score', 0) > 0.05 else "Negative" if p.get('sentiment_score', 0) < -0.05 else "Neutral",
-            "sentimentScore": p.get('sentiment_score',0),
-            "likes": p.get('likes'), "shares": p.get('shares'),
-            "date": datetime.fromisoformat(p.get('created_at')).strftime('%Y-%m-%d %H:%M')
-        } for p in recent_posts_raw]
 
-
-        return jsonify({
+        response_data = {
             "metrics": metrics,
             "activityData": activityData,
             "sentimentDistribution": sentimentDistribution,
@@ -276,7 +319,9 @@ def register_routes(app):
             "platformDistribution": platformDistribution,
             "engagementMetrics": engagementMetrics,
             "recentPosts": recentPosts
-        })
+        }
+        logger.info(f"Returning {len(recentPosts)} recent posts.")
+        return jsonify(response_data)
 
     @app.route('/api/collect-data', methods=['POST']) # Renamed endpoint
     def collect_data_api(): # Renamed function

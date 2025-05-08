@@ -15,16 +15,16 @@ export interface DashboardData {
     postsChange: number;
     engagementRate: number;
     engagementChange: number;
-    sentimentScore: number;
+    sentimentScore: number; // Assuming 0-10 scale from API
     sentimentChange: number;
-    reach: number; // Assuming this maps to trending topics count or similar
+    reach: number; 
     reachChange: number;
   };
   activityData: { // Contains data potentially structured by interval
     labels: string[];
     datasets: {
-        label: string;
-        data: number[];
+        label: string; // Platform name
+        data: number[]; // Count per label/date
         borderColor?: string;
         tension?: number;
         fill?: boolean;
@@ -48,10 +48,9 @@ interface FetchDashboardOptions {
   timeRange?: string; // e.g., '1', '7', '30', '90'
 }
 
-// Base URL for the Flask API (adjust if needed)
-// Assume the Flask app is running on port 5000 locally during development
-// In production, this would be the deployed API URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+// Base URL for the Flask API 
+// Remove trailing /api, as it's included in the specific endpoint fetch below
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'; 
 
 /**
  * Fetches consolidated dashboard data from the Flask backend.
@@ -60,22 +59,20 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/a
  * @returns A promise that resolves to the DashboardData object.
  */
 export async function fetchDashboardData(options: FetchDashboardOptions = {}): Promise<DashboardData> {
-  const { source = 'all', keyword = 'all', timeRange = '7' } = options;
+  const { source = 'all', keyword = '', timeRange = '7' } = options; // Default keyword to empty string
 
   // Construct query parameters
   const params = new URLSearchParams({
     source,
-    keyword: keyword === 'all' ? '' : keyword, // Send empty string if 'all'
+    keyword, // Send empty string if no keyword
     timeRange,
   });
 
-  const url = `${API_BASE_URL}/dashboard-data?${params.toString()}`;
+  const url = `${API_BASE_URL}/api/dashboard-data?${params.toString()}`;
   console.log(`Fetching dashboard data from: ${url}`); // Log the URL being fetched
 
   try {
-    // Simulate API delay
-    // await new Promise(resolve => setTimeout(resolve, 1000));
-    // In a real app, fetch from your backend API
+    
      const response = await fetch(url);
 
      if (!response.ok) {
@@ -86,144 +83,55 @@ export async function fetchDashboardData(options: FetchDashboardOptions = {}): P
           errorBody = errorData.message || `HTTP error! status: ${response.status}`;
        } catch (e) {
           // Ignore JSON parsing error, use status text
+          console.error("Could not parse error response JSON:", e);
           errorBody = `HTTP error! status: ${response.status} - ${response.statusText}`;
        }
+       console.error("API Error Response:", errorBody);
        throw new Error(errorBody);
      }
 
      const data: DashboardData = await response.json();
 
      // --- Data Transformation/Structuring ---
-     // Structure activityData for the chart component if needed
-     // The Flask API currently returns datasets, adapt if structure changes
      if (data.activityData && data.activityData.labels && data.activityData.datasets) {
-        // Example: Transforming API dataset structure to ActivityDataPoint[] for 'daily' view
         const dailyActivity: ActivityDataPoint[] = data.activityData.labels.map((label, index) => {
             const point: ActivityDataPoint = { date: label };
             data.activityData!.datasets.forEach(dataset => {
-                 point[dataset.label.toLowerCase()] = dataset.data[index] ?? 0; // Assuming label is platform name
+                 // Ensure the key is lowercase and valid for object property access
+                 const platformKey = dataset.label.toLowerCase().replace(/[^a-z0-9]/gi, ''); // Basic sanitization
+                 if (platformKey) {
+                    point[platformKey] = dataset.data[index] ?? 0; 
+                 }
              });
             return point;
         });
-        // Assign transformed data (you might need similar logic for weekly/monthly if API changes)
         data.activityData.daily = dailyActivity;
+     } else {
+        console.warn("Activity data received from API is missing labels or datasets.");
+        // Ensure activityData is at least null or an empty structure if expected by components
+        data.activityData = data.activityData || { labels: [], datasets: [], daily: [] }; 
      }
+     
+      // Ensure other potentially null fields are handled gracefully
+     data.sentimentDistribution = data.sentimentDistribution || { positive: 0, neutral: 0, negative: 0 };
+     data.wordCloudData = data.wordCloudData || [];
+     data.topTopics = data.topTopics || [];
+     data.platformDistribution = data.platformDistribution || { labels: [], data: [] };
+     data.engagementMetrics = data.engagementMetrics || { labels: [], datasets: [] };
+     data.recentPosts = data.recentPosts || [];
 
 
     return data;
 
-    // --- Mock Data (Remove or comment out when using the actual API) ---
-    /*
-    console.warn("Using MOCK dashboard data");
-     const mockData = generateMockDashboardData();
-     // Simulate filtering based on options (basic example)
-     if (keyword && keyword !== 'all') {
-         mockData.recentPosts = mockData.recentPosts?.filter(p => p.content.toLowerCase().includes(keyword.toLowerCase())) ?? [];
-         mockData.topTopics = mockData.topTopics?.filter(t => t.name.toLowerCase().includes(keyword.toLowerCase())) ?? [];
-     }
-     if (source && source !== 'all') {
-         mockData.recentPosts = mockData.recentPosts?.filter(p => p.platform.toLowerCase() === source.toLowerCase()) ?? [];
-         // Adjust other metrics based on source if necessary
-     }
-     return mockData;
-     */
-     // --- End Mock Data ---
-
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
     // Re-throw the error to be handled by the calling component
-    throw error;
+    // Ensure it's an actual Error object
+    if (error instanceof Error) {
+        throw error;
+    } else {
+        throw new Error(String(error) || "An unknown error occurred during fetch.");
+    }
   }
 }
 
-
-// Mock data function (for testing without the Flask backend)
-function generateMockDashboardData(): DashboardData {
-     const today = new Date();
-     const generateDateLabels = (days: number, interval: 'day' | 'week' | 'month'): string[] => {
-         const labels: string[] = [];
-         for (let i = 0; i < days; i++) {
-             const date = new Date(today);
-             if (interval === 'day') date.setDate(today.getDate() - (days - 1 - i));
-             // Add logic for week/month intervals if needed
-             labels.push(date.toISOString().split('T')[0]); // Format as YYYY-MM-DD
-         }
-         return labels;
-     };
-
-      const activityLabels = generateDateLabels(7, 'day');
-      const engagementLabels = generateDateLabels(7, 'day');
-
-    return {
-      metrics: {
-        totalPosts: Math.floor(Math.random() * 1000) + 500,
-        postsChange: Math.floor(Math.random() * 21) - 10, // -10 to +10 %
-        engagementRate: Math.random() * 5 + 1, // 1.0 to 6.0 %
-        engagementChange: Math.floor(Math.random() * 11) - 5, // -5 to +5 %
-        sentimentScore: Math.random() * 4 + 3, // 3.0 to 7.0
-        sentimentChange: Math.floor(Math.random() * 7) - 3, // -3 to +3 %
-        reach: Math.floor(Math.random() * 5000) + 1000,
-        reachChange: Math.floor(Math.random() * 16) - 8, // -8 to +8 %
-      },
-      activityData: {
-         labels: activityLabels,
-         datasets: [
-             { label: 'twitter', data: activityLabels.map(() => Math.floor(Math.random() * 30) + 5) },
-             { label: 'facebook', data: activityLabels.map(() => Math.floor(Math.random() * 20) + 3) }
-             // Add more platform datasets as needed
-         ],
-         // Populate daily/weekly/monthly if needed based on datasets
-         daily: activityLabels.map((label, index) => ({
-                date: label,
-                twitter: Math.floor(Math.random() * 30) + 5, // Example transformation
-                facebook: Math.floor(Math.random() * 20) + 3,
-            })),
-       },
-      sentimentDistribution: {
-        positive: Math.floor(Math.random() * 500) + 200,
-        neutral: Math.floor(Math.random() * 300) + 100,
-        negative: Math.floor(Math.random() * 100) + 50,
-      },
-      wordCloudData: [
-        { text: 'AI', value: Math.floor(Math.random() * 50) + 20 },
-        { text: 'NextJS', value: Math.floor(Math.random() * 40) + 15 },
-        { text: 'Cloud', value: Math.floor(Math.random() * 35) + 10 },
-        { text: 'Analytics', value: Math.floor(Math.random() * 30) + 10 },
-        { text: 'Data', value: Math.floor(Math.random() * 25) + 8 },
-        { text: 'React', value: Math.floor(Math.random() * 20) + 5 },
-        { text: 'API', value: Math.floor(Math.random() * 18) + 5 },
-         { text: 'Trend', value: Math.floor(Math.random() * 15) + 4 },
-      ],
-      topTopics: [ // Actually hashtags based on current structure
-        { name: 'AI', posts: Math.floor(Math.random() * 100) + 50 },
-        { name: 'Tech', posts: Math.floor(Math.random() * 80) + 40 },
-        { name: 'WebDev', posts: Math.floor(Math.random() * 70) + 30 },
-        { name: 'OpenSource', posts: Math.floor(Math.random() * 60) + 25 },
-        { name: 'CloudComputing', posts: Math.floor(Math.random() * 50) + 20 },
-      ],
-      platformDistribution: {
-        labels: ['Twitter', 'Facebook', 'Instagram', 'LinkedIn'],
-        data: [
-             Math.floor(Math.random() * 50) + 20,
-             Math.floor(Math.random() * 30) + 15,
-             Math.floor(Math.random() * 20) + 10,
-             Math.floor(Math.random() * 10) + 5
-            ],
-      },
-      engagementMetrics: {
-         labels: engagementLabels,
-         datasets: [
-             { label: 'Avg Likes', data: engagementLabels.map(() => Math.floor(Math.random() * 50) + 10) },
-             { label: 'Avg Shares', data: engagementLabels.map(() => Math.floor(Math.random() * 10) + 2) }
-            ]
-      },
-      recentPosts: [
-        { platform: 'Twitter', author: 'User1', content: 'Loving the new Next.js features! #webdev', sentiment: 'Positive', likes: 150, shares: 20, date: new Date(today.getTime() - 1 * 24 * 3600 * 1000).toISOString() },
-        { platform: 'Facebook', author: 'User2', content: 'Discussing the impact of AI on jobs.', sentiment: 'Neutral', likes: 50, shares: 5, date: new Date(today.getTime() - 2 * 24 * 3600 * 1000).toISOString() },
-        { platform: 'Twitter', author: 'User3', content: 'Cloud costs are getting out of hand!', sentiment: 'Negative', likes: 25, shares: 3, date: new Date(today.getTime() - 3 * 24 * 3600 * 1000).toISOString() },
-         { platform: 'LinkedIn', author: 'User4', content: 'Great insights on data analytics strategies.', sentiment: 'Positive', likes: 80, shares: 15, date: new Date(today.getTime() - 4 * 24 * 3600 * 1000).toISOString() },
-         { platform: 'Twitter', author: 'User5', content: 'Trying out the latest AI tools for coding.', sentiment: 'Positive', likes: 120, shares: 18, date: new Date(today.getTime() - 5 * 24 * 3600 * 1000).toISOString() },
-          { platform: 'Facebook', author: 'User6', content: 'Is AI overhyped right now?', sentiment: 'Neutral', likes: 60, shares: 8, date: new Date(today.getTime() - 6 * 24 * 3600 * 1000).toISOString() },
-      ],
-    };
- }
