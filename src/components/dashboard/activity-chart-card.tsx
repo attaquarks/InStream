@@ -4,7 +4,7 @@
 import type { FC } from 'react';
 import { BarChart, LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -83,3 +83,4 @@ const ActivityChartCard: FC<ActivityChartCardProps> = ({ activityData, isLoading
 };
 
 export default ActivityChartCard;
+
