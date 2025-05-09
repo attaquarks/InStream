@@ -6,16 +6,18 @@ from flask_cors import CORS # Import CORS
 
 from .config import get_config
 from database.db import init_db
-from .services.collector import collect_and_save_data
 from .services.processor import DataProcessor
 from .services.analyzer import DataAnalyzer
 from scheduler.tasks import init_scheduler
 from werkzeug.utils import secure_filename # For file uploads
 import logging
+from app.services.collector import DataCollector
+from database.db import session_scope
 
 # Initialize processor and analyzer
 processor = DataProcessor()
 analyzer = DataAnalyzer()
+collector = DataCollector()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -47,6 +49,7 @@ def create_app():
     # Initialize database
     with app.app_context():
         init_db()
+        logger.info("Database initialized successfully")
 
     # Register routes
     register_routes(app)
@@ -333,70 +336,77 @@ def register_routes(app):
         logger.info(f"Returning {len(recentPosts)} recent posts.")
         return jsonify(response_data)
 
-    @app.route('/api/collect-data', methods=['POST']) # Renamed endpoint
-    def collect_data_api(): # Renamed function
-        """Manually trigger data collection."""
-        source = request.form.get('source', 'twitter')
-        keywords_str = request.form.get('keywords', '')
-        keywords = [k.strip() for k in keywords_str.split(',') if k.strip()] if keywords_str else get_config().DEFAULT_KEYWORDS
-
-        limit_str = request.form.get('limit', str(get_config().POST_LIMIT))
+    @app.route('/api/collect-data', methods=['POST'])
+    def collect_data():
+        """Collect data from specified sources."""
         try:
-            limit = int(limit_str)
-        except ValueError:
-            limit = get_config().POST_LIMIT
-
-        # dateRange = request.form.get('dateRange')
-        # startDate = request.form.get('startDate') # Handle if 'custom'
-        # endDate = request.form.get('endDate') # Handle if 'custom'
-
-        if source == 'csv':
-            if 'file' not in request.files:
-                return jsonify({'status': 'error', 'message': 'No file part in CSV upload'}), 400
-            file = request.files['file']
-            if file.filename == '':
-                return jsonify({'status': 'error', 'message': 'No selected file for CSV upload'}), 400
-            if file and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(filepath)
-                # TODO: Implement CSV processing logic by calling a new function in collector.py
-                # For example: count = process_csv_data(filepath, keywords, limit)
-                # For now, just acknowledge upload
-                logger.info(f"CSV file {filename} uploaded. Processing not yet implemented.")
-                return jsonify({'status': 'success', 'message': f'CSV file {filename} uploaded. Processing to be implemented.'})
-            else:
-                return jsonify({'status': 'error', 'message': 'File type not allowed for CSV upload'}), 400
-
-        try:
-            count = collect_and_save_data(source, keywords, limit)
-            # After successful collection, trigger processing
-            processor.extract_keywords(limit=count) # Process newly added posts
-            processor.analyze_sentiment(limit=count) # Process newly added posts
-            return jsonify({'status': 'success', 'collected': count})
+            data = request.get_json()
+            source = data.get('source', 'all')
+            keywords = data.get('keywords', [])
+            days = data.get('days', 7)
+            
+            if not keywords:
+                return jsonify({'error': 'No keywords provided'}), 400
+                
+            # Collect data using the collector
+            collected_data = collector.collect_all_data(keywords[0], [source], days)
+            
+            # Save to database
+            collector.save_to_database(collected_data)
+            
+            return jsonify({
+                'message': 'Data collection completed',
+                'count': len(collected_data)
+            })
+            
         except Exception as e:
-            logger.error(f"Error in /api/collect-data: {e}", exc_info=True)
-            return jsonify({'status': 'error', 'message': str(e)}), 500
+            logger.error(f"Error in collect_data: {str(e)}")
+            return jsonify({'error': str(e)}), 500
 
     @app.route('/api/process', methods=['POST'])
     def process_data_route():
-        """Process uploaded data file."""
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file part'}), 400
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'error': 'No selected file'}), 400
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
-            # Process the file
-            try:
-                processor.process_file(filepath)
-                return jsonify({'message': 'File processed successfully'})
-            except Exception as e:
-                return jsonify({'error': str(e)}), 500
-        return jsonify({'error': 'Invalid file type'}), 400
+        """Process collected data."""
+        try:
+            data = request.get_json()
+            days = data.get('days', 7)
+            platform = data.get('platform', None)
+            
+            # Process data using the processor
+            processed_data = processor.process_data(days, platform)
+            
+            return jsonify(processed_data)
+            
+        except Exception as e:
+            logger.error(f"Error in process_data: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/test-collect', methods=['POST'])
+    def test_collect():
+        """Test endpoint to trigger data collection."""
+        try:
+            data = request.get_json()
+            keyword = data.get('keyword', 'AI')
+            source = data.get('source', 'all')
+            days = data.get('days', 7)
+            
+            logger.info(f"Starting test collection for keyword: {keyword}, source: {source}")
+            
+            # Collect data
+            collected_data = collector.collect_all_data(keyword, [source], days)
+            logger.info(f"Collected {len(collected_data)} items")
+            
+            # Save to database
+            with session_scope() as session:
+                collector.save_to_database(collected_data, session)
+            
+            return jsonify({
+                'message': 'Test collection completed',
+                'count': len(collected_data)
+            })
+            
+        except Exception as e:
+            logger.error(f"Error in test collection: {str(e)}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
 
 
 # Create the Flask application instance
