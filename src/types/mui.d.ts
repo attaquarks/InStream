@@ -1,0 +1,9 @@
+declare module '@mui/material/*';
+declare module '@mui/material/styles';
+declare module '@mui/icons-material/*';
+declare module '@mui/system/*';
+declare module '@mui/utils/*';
+declare module '@mui/base/*';
+declare module '@mui/styled-engine/*';
+declare module '@mui/styled-engine-sc/*';
+declare module '@mui/unstyled/*'; 
